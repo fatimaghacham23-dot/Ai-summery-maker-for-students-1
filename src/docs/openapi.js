@@ -261,6 +261,328 @@ const openapiSpec = {
         },
       },
     },
+    "/api/tools/run": {
+      post: {
+        summary: "Run a workspace tool",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ToolRunRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Tool execution result",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ToolRunResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/inputs/upload": {
+      post: {
+        summary: "Upload a document",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  file: { type: "string", format: "binary" },
+                },
+                required: ["file"],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Document uploaded",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DocumentResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Bad request or unsupported file type",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          413: {
+            description: "Upload exceeded the maximum file size",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/inputs/ocr": {
+      post: {
+        summary: "Extract text via OCR",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  file: { type: "string", format: "binary" },
+                },
+                required: ["file"],
+              },
+            },
+          },
+        },
+        responses: {
+          501: {
+            description: "OCR not implemented",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/inputs/url": {
+      post: {
+        summary: "Fetch readable text from a URL",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  url: { type: "string", format: "uri" },
+                },
+                required: ["url"],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "URL parsed",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DocumentResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Invalid URL or disallowed host",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          502: {
+            description: "Unable to fetch URL content",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/inputs/youtube": {
+      post: {
+        summary: "Extract transcript from a YouTube link",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  url: { type: "string", format: "uri" },
+                  language: { type: "string", example: "en" },
+                },
+                required: ["url"],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Document created from YouTube transcript",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DocumentResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Invalid URL or disallowed domain",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          422: {
+            description: "Transcript unavailable or disabled for this video",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          502: {
+            description: "Unable to fetch the transcript from YouTube",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          504: {
+            description: "YouTube transcript request timed out",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/inputs/audio": {
+      post: {
+        summary: "Submit audio for transcription (feature flag)",
+        responses: {
+          501: {
+            description: "Audio transcription is not implemented yet",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/saved": {
+      get: {
+        summary: "List saved summaries",
+        parameters: [
+          { name: "query", in: "query", schema: { type: "string" } },
+          { name: "folder", in: "query", schema: { type: "string" } },
+          { name: "tag", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          200: {
+            description: "Saved summary list",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/SavedItem" },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Save a tool run",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SavedItemRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Saved item created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SavedItemResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/runs/{id}": {
+      get: {
+        summary: "Get tool run details",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          200: {
+            description: "Run detail",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/RunDetail" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/share": {
+      post: {
+        summary: "Share a run via public token",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ShareLinkRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Share link created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ShareLinkResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/export/{runId}": {
+      get: {
+        summary: "Export a run output",
+        parameters: [
+          { name: "runId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "format",
+            in: "query",
+            schema: { type: "string", enum: ["pdf", "docx", "txt", "md"] },
+          },
+        ],
+        responses: {
+          200: {
+            description: "File download",
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -416,6 +738,197 @@ const openapiSpec = {
               },
             },
           },
+        },
+      },
+      ToolRunRequest: {
+        type: "object",
+        properties: {
+          tool: {
+            type: "string",
+            enum: [
+              "summary.short",
+              "summary.detailed",
+              "summary.bullets",
+              "summary.one_sentence",
+              "summary.tldr",
+              "summary.key_takeaways",
+              "summary.executive",
+              "summary.sectioned",
+              "extract.action_items",
+              "extract.questions",
+              "extract.decisions",
+              "extract.quotes",
+              "extract.keywords",
+              "extract.people",
+              "extract.dates",
+              "wow.highlight",
+              "wow.fact_flags",
+              "wow.mindmap",
+              "wow.next_steps",
+              "wow.email_reply",
+              "rewrite",
+            ],
+          },
+          text: { type: "string" },
+          documentId: { type: "string" },
+          controls: { $ref: "#/components/schemas/ToolControls" },
+          options: { $ref: "#/components/schemas/ToolOptions" },
+        },
+        required: ["tool", "text"],
+      },
+      ToolControls: {
+        type: "object",
+        properties: {
+          length: { type: "number", minimum: 0, maximum: 1 },
+          tone: { type: "string", enum: ["professional", "casual", "academic"] },
+          language: { type: "string" },
+          focus: { type: "string", enum: ["student", "manager", "lawyer", "developer"] },
+        },
+      },
+      ToolOptions: {
+        type: "object",
+        properties: {
+          sectioned: {
+            type: "object",
+            properties: {
+              maxSectionChars: { type: "number", example: 3500 },
+            },
+          },
+          rewrite: {
+            type: "object",
+            properties: {
+              mode: { type: "string", enum: ["shorter", "longer", "simpler"] },
+            },
+          },
+        },
+      },
+      ToolRunResponse: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          tool: { type: "string" },
+          output: { $ref: "#/components/schemas/ToolOutput" },
+          highlights: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ToolHighlight" },
+          },
+          meta: { $ref: "#/components/schemas/ToolMeta" },
+        },
+        required: ["runId", "tool", "output"],
+      },
+      ToolOutput: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["text", "bullets", "json"] },
+          data: {},
+        },
+      },
+      ToolHighlight: {
+        type: "object",
+        properties: {
+          start: { type: "number" },
+          end: { type: "number" },
+          reason: { type: "string" },
+        },
+      },
+      ToolMeta: {
+        type: "object",
+        properties: {
+          provider: { type: "string" },
+          model: { type: "string" },
+        },
+      },
+      DocumentResponse: {
+        type: "object",
+        properties: {
+          documentId: { type: "string" },
+          text: { type: "string" },
+          source: { type: "string" },
+          filename: { type: "string" },
+          mime: { type: "string", example: "text/plain" },
+          url: { type: "string", format: "uri" },
+        },
+      },
+      ApiError: {
+        type: "object",
+        properties: {
+          error: {
+            type: "object",
+            properties: {
+              code: { type: "string", example: "NOT_IMPLEMENTED" },
+              message: { type: "string" },
+              details: { type: "string" },
+            },
+            required: ["code", "message"],
+          },
+        },
+      },
+      SavedItemRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          title: { type: "string" },
+          tags: {
+            type: "array",
+            items: { type: "string" },
+          },
+          folder: { type: "string" },
+        },
+        required: ["runId"],
+      },
+      SavedItemResponse: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          runId: { type: "string" },
+          title: { type: "string" },
+        },
+      },
+      SavedItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          folder: { type: "string" },
+          tags: {
+            type: "array",
+            items: { type: "string" },
+          },
+          runId: { type: "string" },
+          tool: { type: "string" },
+          createdAt: { type: "string" },
+        },
+      },
+      RunDetail: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          tool: { type: "string" },
+          provider: { type: "string" },
+          model: { type: "string" },
+          params: { type: "object" },
+          output: { $ref: "#/components/schemas/ToolOutput" },
+          highlights: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ToolHighlight" },
+          },
+          createdAt: { type: "string" },
+        },
+      },
+      ShareLinkRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          ttlHours: { type: "number" },
+        },
+        required: ["runId"],
+      },
+      ShareLinkResponse: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          url: { type: "string" },
+          expiresAt: { type: "string" },
         },
       },
     },

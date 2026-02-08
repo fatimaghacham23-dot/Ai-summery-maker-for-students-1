@@ -1,8 +1,7 @@
-﻿import { requestJson } from "./api.js";
+import { requestJson } from "./api.js";
 import { showToast } from "./ui.js";
 
 const summaryView = document.querySelector(".summary-view");
-const summaryForm = document.getElementById("summaryForm");
 const summaryText = document.getElementById("summaryText");
 const summaryLength = document.getElementById("summaryLength");
 const summaryFormat = document.getElementById("summaryFormat");
@@ -10,11 +9,13 @@ const summaryCounter = document.getElementById("summaryCounter");
 const summaryStatus = document.getElementById("summaryStatus");
 const summaryPreview = document.getElementById("summaryPreview");
 const summaryOutput = document.getElementById("summaryOutput");
+const summaryHighlights = document.getElementById("summaryHighlights");
 const summaryError = document.getElementById("summaryError");
 const summaryValidation = document.getElementById("summaryValidation");
 const previewStatus = document.getElementById("previewStatus");
 
 let summaryPayload = null;
+let highlightSourceText = "";
 
 const getWordCount = (text = "") => {
   if (!text.trim()) {
@@ -42,11 +43,13 @@ const renderPlaceholder = () => {
   if (summaryOutput) {
     summaryOutput.innerHTML = `<p class="placeholder">Start with a summary request to see results here.</p>`;
   }
+  renderHighlights([]);
   summaryPreview?.classList.remove("loading");
 };
 
 const setPreviewLoading = () => {
   if (summaryError) summaryError.hidden = true;
+  renderHighlights([]);
   if (previewStatus) previewStatus.textContent = "Generating summary";
   summaryPreview?.classList.add("loading");
   if (summaryOutput) {
@@ -60,31 +63,213 @@ const setPreviewLoading = () => {
   }
 };
 
-const renderSummary = (summary) => {
-  if (!summaryOutput) return;
-  if (summaryError) summaryError.hidden = true;
-  summaryValidation?.setAttribute("aria-hidden", "true");
-  summaryOutput.innerHTML = "";
+function stripBulletPrefix(line) {
+  if (!line) {
+    return "";
+  }
+  return line.replace(/^[•\-\*]\s*/, "").trim();
+}
 
-  if (Array.isArray(summary)) {
+function renderEmptyState() {
+  if (!summaryOutput) return;
+  const placeholder = document.createElement("p");
+  placeholder.className = "placeholder";
+  placeholder.textContent = "No content returned.";
+  summaryOutput.appendChild(placeholder);
+}
+
+function renderTextContent(value) {
+  if (!summaryOutput) return;
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      renderEmptyState();
+      return;
+    }
+    value.forEach((item) => renderTextContent(item));
+    return;
+  }
+  if (value && typeof value === "object") {
+    const pre = document.createElement("pre");
+    pre.className = "summary-text";
+    pre.textContent = JSON.stringify(value, null, 2);
+    summaryOutput.appendChild(pre);
+    return;
+  }
+
+  const text = String(value ?? "").trim();
+  if (!text) {
+    renderEmptyState();
+    return;
+  }
+
+  const paragraphs = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!paragraphs.length) {
+    renderEmptyState();
+    return;
+  }
+
+  paragraphs.forEach((paragraph) => {
+    const paragraphEl = document.createElement("p");
+    paragraphEl.className = "summary-text";
+    paragraphEl.textContent = paragraph;
+    summaryOutput.appendChild(paragraphEl);
+  });
+}
+
+function renderBullets(value) {
+  if (!summaryOutput) return;
+  const rawLines = Array.isArray(value) ? value : String(value ?? "").split(/\r?\n/);
+  const items = rawLines.map((line) => stripBulletPrefix(line)).filter(Boolean);
+  if (!items.length) {
+    renderEmptyState();
+    return;
+  }
+  const list = document.createElement("ul");
+  list.className = "summary-list";
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    list.appendChild(li);
+  });
+  summaryOutput.appendChild(list);
+}
+
+function renderJsonData(value) {
+  if (!summaryOutput) return;
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      renderEmptyState();
+      return;
+    }
     const list = document.createElement("ul");
     list.className = "summary-list";
-    summary.forEach((item) => {
+    value.forEach((item) => {
       const li = document.createElement("li");
-      li.textContent = item;
+      if (item && typeof item === "object") {
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(item, null, 2);
+        li.appendChild(pre);
+      } else {
+        li.textContent = String(item);
+      }
       list.appendChild(li);
     });
     summaryOutput.appendChild(list);
     return;
   }
+  if (value && typeof value === "object") {
+    const pre = document.createElement("pre");
+    pre.className = "summary-text";
+    pre.textContent = JSON.stringify(value, null, 2);
+    summaryOutput.appendChild(pre);
+    return;
+  }
+  renderTextContent(value);
+}
 
-  const paragraph = document.createElement("p");
-  paragraph.className = "summary-text";
-  paragraph.textContent = summary;
-  summaryOutput.appendChild(paragraph);
+function renderSummary(output) {
+  if (!summaryOutput) return;
+  if (summaryError) summaryError.hidden = true;
+  summaryValidation?.setAttribute("aria-hidden", "true");
+  summaryOutput.innerHTML = "";
+
+  const type = output?.type || "text";
+  const data = output?.data;
+
+  if (type === "bullets") {
+    renderBullets(data);
+    return;
+  }
+
+  if (type === "json") {
+    renderJsonData(data);
+    return;
+  }
+
+  renderTextContent(data);
+}
+
+function getHighlightSnippet(highlight) {
+  if (!highlight) return "";
+  if (typeof highlight.text === "string" && highlight.text.trim()) {
+    return highlight.text.trim();
+  }
+  const start = Number(highlight.start);
+  const end = Number(highlight.end);
+  if (
+    Number.isFinite(start) &&
+    Number.isFinite(end) &&
+    highlightSourceText &&
+    end > start
+  ) {
+    return highlightSourceText.slice(start, end).trim();
+  }
+  return "";
+}
+
+function renderHighlights(highlights = []) {
+  if (!summaryHighlights) return;
+  summaryHighlights.innerHTML = "";
+  if (!highlights.length) {
+    summaryHighlights.hidden = true;
+    return;
+  }
+  summaryHighlights.hidden = false;
+  const title = document.createElement("p");
+  title.className = "helper-text";
+  title.textContent = "Highlighted sentences";
+  summaryHighlights.appendChild(title);
+  const list = document.createElement("ul");
+  list.className = "summary-list summary-highlight-list";
+  highlights.forEach((highlight) => {
+    const snippet = getHighlightSnippet(highlight);
+    const li = document.createElement("li");
+    const textSpan = document.createElement("span");
+    textSpan.className = "summary-highlight-text";
+    textSpan.textContent = snippet || `Offsets ${highlight.start ?? 0}-${highlight.end ?? 0}`;
+    li.appendChild(textSpan);
+    if (highlight.reason) {
+      const reason = document.createElement("span");
+      reason.className = "summary-highlight-reason";
+      reason.textContent = ` (${highlight.reason})`;
+      li.appendChild(reason);
+    }
+    list.appendChild(li);
+  });
+  summaryHighlights.appendChild(list);
+}
+
+function normalizePayload(payload) {
+  if (!payload) {
+    return { output: { type: "text", data: "" }, highlights: [] };
+  }
+  if (payload.output) {
+    return {
+      output: payload.output,
+      highlights: Array.isArray(payload.highlights) ? payload.highlights : [],
+    };
+  }
+  if (payload.type && Object.prototype.hasOwnProperty.call(payload, "data")) {
+    return { output: payload, highlights: [] };
+  }
+  return { output: { type: "text", data: payload }, highlights: [] };
+}
+
+const getPrintableSummary = (payload = summaryPayload) => {
+  if (!payload) return "";
+  if (Array.isArray(payload)) return payload.join("\n");
+  if (typeof payload === "object") {
+    return JSON.stringify(payload, null, 2);
+  }
+  return String(payload);
 };
 
 const handleError = (message) => {
+  renderHighlights([]);
   if (summaryError) {
     summaryError.hidden = false;
     summaryError.textContent = message;
@@ -94,16 +279,32 @@ const handleError = (message) => {
     summaryValidation.setAttribute("aria-hidden", "false");
   }
   setStatus("Error", "offline");
-  previewStatus && (previewStatus.textContent = "Issue generating summary");
+  if (previewStatus) {
+    previewStatus.textContent = "Issue generating summary";
+  }
   showToast(message, "error");
+};
+
+function setHighlightSource(text) {
+  highlightSourceText = text || "";
+}
+
+const setSummaryText = (value) => {
+  if (!summaryText) return;
+  summaryText.value = value || "";
+  updateCounter();
+};
+
+const getSummaryInput = () => {
+  if (!summaryText) return "";
+  return summaryText.value || "";
 };
 
 const handlePaste = async () => {
   if (!summaryText) return;
   try {
     const text = await navigator.clipboard.readText();
-    summaryText.value = text;
-    updateCounter();
+    setSummaryText(text);
     setStatus("Ready");
   } catch (error) {
     console.error(error);
@@ -112,14 +313,13 @@ const handlePaste = async () => {
 };
 
 const handleCopy = async () => {
-  if (!summaryPayload) {
+  const content = getPrintableSummary();
+  if (!content) {
     showToast("Nothing to copy", "error");
     return;
   }
   try {
-    await navigator.clipboard.writeText(
-      Array.isArray(summaryPayload) ? summaryPayload.join("\n") : summaryPayload
-    );
+    await navigator.clipboard.writeText(content);
     showToast("Copied summary", "success");
   } catch (error) {
     console.error(error);
@@ -128,11 +328,11 @@ const handleCopy = async () => {
 };
 
 const handleDownload = () => {
-  if (!summaryPayload) {
+  const content = getPrintableSummary();
+  if (!content) {
     showToast("Nothing to download", "error");
     return;
   }
-  const content = Array.isArray(summaryPayload) ? summaryPayload.join("\n") : summaryPayload;
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -145,12 +345,18 @@ const handleDownload = () => {
   showToast("Summary downloaded", "success");
 };
 
+const renderSummaryPayload = (payload) => {
+  summaryPayload = payload;
+  const { output, highlights } = normalizePayload(payload);
+  renderSummary(output);
+  renderHighlights(highlights);
+};
+
 const generateSummary = async () => {
-  if (!summaryText) return;
-  const text = summaryText.value.trim();
+  const text = getSummaryInput().trim();
   if (!text) {
     handleError("Paste your study text first");
-    summaryText.focus();
+    summaryText?.focus();
     return;
   }
   setStatus("Summarizing...");
@@ -161,14 +367,15 @@ const generateSummary = async () => {
       method: "POST",
       body: JSON.stringify({
         text,
-        length: summaryLength.value,
-        format: summaryFormat.value,
+        length: summaryLength?.value,
+        format: summaryFormat?.value,
       }),
     });
-    summaryPayload = data.summary;
-    renderSummary(summaryPayload);
     setStatus("Ready", "online");
-    previewStatus?.textContent = "Summary generated";
+    renderSummaryPayload(data.summary);
+    if (previewStatus) {
+      previewStatus.textContent = "Summary generated";
+    }
     showToast("Summary ready", "success");
   } catch (error) {
     console.error(error);
@@ -187,7 +394,7 @@ const handleAction = async (action) => {
       await handlePaste();
       break;
     case "clear":
-      if (summaryText) summaryText.value = "";
+      setSummaryText("");
       summaryPayload = null;
       updateCounter();
       renderPlaceholder();
@@ -219,4 +426,14 @@ const initSummaryFlow = () => {
   bindSummaryActions();
 };
 
-export { initSummaryFlow };
+export {
+  initSummaryFlow,
+  renderSummaryPayload,
+  setStatus,
+  getPrintableSummary,
+  getSummaryInput,
+  setSummaryText,
+  setPreviewLoading,
+  handleError,
+  setHighlightSource,
+};

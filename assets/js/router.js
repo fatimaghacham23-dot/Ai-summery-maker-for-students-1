@@ -1,4 +1,5 @@
-﻿import { initSummaryFlow } from "./summary.js";
+import { initSummaryFlow } from "./summary.js";
+import { initToolsWorkspace } from "./toolsWorkspace.js";
 import { initExamFlow } from "./exams.js";
 import { requestJson } from "./api.js";
 
@@ -59,6 +60,7 @@ const bootstrap = () => {
   setActiveView("summary");
   navLinks.forEach((link) => link.addEventListener("click", handleNavClick));
   initSummaryFlow();
+  initToolsWorkspace();
   initExamFlow();
   applyVersion();
   checkApiHealth();

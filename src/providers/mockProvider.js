@@ -283,12 +283,29 @@ const generateExam = async ({ text, title, config }) => {
     questions,
   };
 };
+const { runMockTool } = require("../tools/mockExecutor");
+
 const summarize = async ({ text, length, format }) => {
   const summaryText = createSummaryText({ text, length });
   return formatSummary({ summaryText, format });
 };
 
+const runTool = async (params) => {
+  const result = runMockTool(params);
+  const meta = {
+    provider: "mock",
+    model: "heuristic",
+    ...result.meta,
+  };
+  return {
+    output: result.output,
+    highlights: result.highlights || [],
+    meta,
+  };
+};
+
 module.exports = {
   summarize,
   generateExam,
+  runTool,
 };

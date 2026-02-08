@@ -58,4 +58,5 @@ const formatSummary = ({ summaryText, format }) => {
 module.exports = {
   createSummaryText,
   formatSummary,
+  splitSentences,
 };

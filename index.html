@@ -131,9 +131,189 @@
               <div class="preview-content" id="summaryOutput">
                 <p class="placeholder">Start with a summary request to see results here.</p>
               </div>
+              <div class="summary-highlights" id="summaryHighlights" hidden></div>
               <div id="summaryError" class="summary-error" hidden></div>
             </section>
           </div>
+          <section class="card tools-workspace" aria-label="Tools workspace">
+            <div class="tools-header">
+              <div>
+                <p class="helper-text">Workspace / Tools</p>
+                <h3>Tools workspace</h3>
+                <p class="helper-text">Run specialized summaries, extractions, imports, and exports in one place.</p>
+              </div>
+              <span class="status-chip online">Live tools</span>
+            </div>
+            <div class="tools-grid">
+              <article class="tools-card">
+                <h4>Core Summary Tools</h4>
+                <div class="tool-buttons">
+                  <button type="button" data-tool="summary.short">Short summary</button>
+                  <button type="button" data-tool="summary.detailed">Detailed summary</button>
+                  <button type="button" data-tool="summary.bullets">Bullet summary</button>
+                  <button type="button" data-tool="summary.one_sentence">1-sentence summary</button>
+                  <button type="button" data-tool="summary.tldr">TL;DR</button>
+                  <button type="button" data-tool="summary.key_takeaways">Key takeaways</button>
+                  <button type="button" data-tool="summary.executive">Executive summary</button>
+                  <button type="button" data-tool="summary.sectioned">Chapter / section summary</button>
+                </div>
+              </article>
+              <article class="tools-card">
+                <h4>Smart Extraction Tools</h4>
+                <div class="tool-buttons">
+                  <button type="button" data-tool="extract.action_items">Action items</button>
+                  <button type="button" data-tool="extract.questions">Questions</button>
+                  <button type="button" data-tool="extract.decisions">Decisions</button>
+                  <button type="button" data-tool="extract.quotes">Important quotes</button>
+                  <button type="button" data-tool="extract.keywords">Keywords</button>
+                  <button type="button" data-tool="extract.people">People / names</button>
+                  <button type="button" data-tool="extract.dates">Dates / deadlines</button>
+                </div>
+              </article>
+              <article class="tools-card control-tools">
+                <h4>Control Tools</h4>
+                <div class="control-grid">
+                  <div class="form-field">
+                    <label for="toolsLengthSlider">Summary length</label>
+                    <input id="toolsLengthSlider" type="range" min="0" max="1" step="0.01" value="0.5" />
+                    <div class="slider-labels">
+                      <span>Short</span>
+                      <span id="toolsLengthValue">50%</span>
+                      <span>Long</span>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label for="toolsToneSelect">Tone</label>
+                    <select id="toolsToneSelect">
+                      <option value="professional" selected>Professional</option>
+                      <option value="casual">Casual</option>
+                      <option value="academic">Academic</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="toolsLanguageInput">Language</label>
+                    <input id="toolsLanguageInput" type="text" placeholder="en" />
+                  </div>
+                  <div class="form-field">
+                    <label for="toolsFocusSelect">Focus</label>
+                    <select id="toolsFocusSelect">
+                      <option value="student" selected>Student</option>
+                      <option value="manager">Manager</option>
+                      <option value="lawyer">Lawyer</option>
+                      <option value="developer">Developer</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="toolsSectionedLimit">Section max characters</label>
+                    <input
+                      id="toolsSectionedLimit"
+                      type="number"
+                      min="500"
+                      max="10000"
+                      step="100"
+                      value="3500"
+                    />
+                    <p class="helper-text">Caps each chapter / section summary when using the chapter tool.</p>
+                  </div>
+                </div>
+              </article>
+              <article class="tools-card input-tools">
+                <h4>Input Tools</h4>
+                <div class="tool-buttons">
+                  <button type="button" id="pdfUploadBtn">Upload PDF</button>
+                  <button type="button" id="docxUploadBtn">Upload DOCX</button>
+                  <button type="button" id="txtUploadBtn">Upload TXT</button>
+                  <button type="button" id="ocrUploadBtn">Image → OCR</button>
+                  <button type="button" data-action="paste">Paste text</button>
+                </div>
+                <div class="tool-input-grid">
+                  <div class="form-field">
+                    <label for="toolsUrlInput">Website URL</label>
+                    <div class="tool-input-row">
+                      <input id="toolsUrlInput" type="url" placeholder="https://example.com/article" />
+                      <button type="button" id="toolsUrlFetch">Fetch</button>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label for="toolsYouTubeInput">YouTube link</label>
+                    <div class="tool-input-row">
+                      <input id="toolsYouTubeInput" type="url" placeholder="https://www.youtube.com/watch?v=" />
+                      <button type="button" id="toolsYouTubeFetch">Transcript</button>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="btn ghost" id="toolsAudioBtn">Audio → transcript</button>
+              </article>
+              <article class="tools-card output-tools">
+                <h4>Output Tools</h4>
+                <div class="tool-buttons">
+                  <button type="button" data-action="copy">Copy summary</button>
+                  <button type="button" data-export="pdf">Export to PDF</button>
+                  <button type="button" data-export="docx">Export to DOCX</button>
+                  <button type="button" data-export="txt">Export to TXT</button>
+                  <button type="button" data-export="md">Download as Markdown</button>
+                </div>
+                <div class="share-row">
+                  <button type="button" id="toolsShareBtn">Share link</button>
+                  <input id="toolsShareLink" type="text" placeholder="Generate share link" readonly />
+                </div>
+              </article>
+              <article class="tools-card productivity-tools">
+                <h4>Productivity Tools</h4>
+                <div class="productivity-form">
+                  <div class="form-field">
+                    <label for="savedTitleInput">Title</label>
+                    <input id="savedTitleInput" type="text" placeholder="Title for this summary" />
+                  </div>
+                  <div class="form-field">
+                    <label for="savedTagsInput">Tags</label>
+                    <input id="savedTagsInput" type="text" placeholder="tag1, tag2" />
+                  </div>
+                  <div class="form-field">
+                    <label for="savedFolderInput">Folder</label>
+                    <input id="savedFolderInput" type="text" placeholder="Folder" />
+                  </div>
+                  <button type="button" class="btn secondary" id="savedActionBtn">Save summary</button>
+                </div>
+                <div class="history-controls">
+                  <div class="form-field">
+                    <label for="savedSearchInput">Search saved summaries</label>
+                    <div class="tool-input-row">
+                      <input id="savedSearchInput" type="search" placeholder="Search by title or tag" />
+                      <button type="button" id="savedSearchBtn">Search</button>
+                    </div>
+                  </div>
+                </div>
+                <ul id="savedList" class="history-list"></ul>
+                <div class="compare-section">
+                  <h5>Compare two summaries</h5>
+                  <div class="compare-grid">
+                    <select id="compareLeft"><option value="">Choose first</option></select>
+                    <select id="compareRight"><option value="">Choose second</option></select>
+                  </div>
+                  <button type="button" id="compareBtn" class="btn ghost">Compare</button>
+                  <div id="comparePanel" class="compare-panel"></div>
+                </div>
+              </article>
+              <article class="tools-card extra-tools">
+                <h4>Extra “Wow” Tools</h4>
+                <div class="tool-buttons">
+                  <button type="button" data-tool="wow.highlight">Highlight sentences</button>
+                  <button type="button" data-tool="wow.fact_flags">Fact-check mode</button>
+                  <button type="button" data-tool="wow.mindmap">Mind-map outline</button>
+                  <button type="button" data-tool="wow.next_steps">Summary + next steps</button>
+                  <button type="button" data-tool="wow.email_reply">Summary + email reply</button>
+                  <button type="button" data-tool="rewrite" data-rewrite-mode="shorter">Rewrite (shorter)</button>
+                  <button type="button" data-tool="rewrite" data-rewrite-mode="longer">Rewrite (longer)</button>
+                  <button type="button" data-tool="rewrite" data-rewrite-mode="simpler">Rewrite (simpler)</button>
+                </div>
+              </article>
+            </div>
+            <input type="file" id="pdfUploadInput" accept=".pdf" hidden />
+            <input type="file" id="docxUploadInput" accept=".docx" hidden />
+            <input type="file" id="txtUploadInput" accept=".txt,text/plain" hidden />
+            <input type="file" id="ocrUploadInput" accept="image/*" hidden />
+          </section>
         </section>
 
         <section class="page-view exam-view" data-view="exam">

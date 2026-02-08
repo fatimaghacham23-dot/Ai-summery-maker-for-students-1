@@ -1,31 +1,83 @@
 const { AppError } = require("../middleware/errorHandler");
 const { debugFetch } = require("../debug/debugFetch");
-const getPrompt = ({ text, length, format }) => {
-  const lengthInstructions = {
-    short: "2-3 sentences",
-    medium: "4-6 sentences",
-    detailed: "7-10 sentences",
-    unlimited: "As long as needed, with no length limit",
-  };
 
-  const formatInstruction =
-    format === "bullets"
-      ? "Return bullet points starting with '- '."
-      : "Return a single paragraph.";
-
-  return [
-    "You are a helpful assistant that summarizes study notes for students.",
-    `Summary length: ${lengthInstructions[length]}.`,
-    formatInstruction,
-    "Keep the summary concise and clear.",
-    "Text:",
-    text,
-  ].join("\n");
+const TOOL_OPENAI_METADATA = {
+  summary: {
+    instructions: "Return a useful summary tailored to the requested detail level.",
+    outputType: "text",
+  },
+  extract: {
+    instructions: "Return structured extractions as JSON based on the tool.",
+    outputType: "json",
+  },
 };
 
-const summarize = async ({ text, length, format }) => {
-  const apiKey = process.env.OPENAI_API_KEY;
+const getToolLabel = (tool) => {
+  switch (tool) {
+    case "summary.short":
+      return "Short summary (2-3 sentences)";
+    case "summary.detailed":
+      return "Detailed summary (multiple paragraphs)";
+    case "summary.bullets":
+      return "Bullet-point summary";
+    case "summary.one_sentence":
+      return "One-sentence summary";
+    case "summary.tldr":
+      return "TL;DR summary";
+    case "summary.key_takeaways":
+      return "Key takeaways";
+    case "summary.executive":
+      return "Executive playbook";
+    case "summary.sectioned":
+      return "Section-by-section breakdown";
+    case "rewrite":
+      return "Rewrite";
+    default:
+      if (tool.startsWith("extract.")) {
+        return `${tool.split(".")[1]} extraction`;
+      }
+      if (tool.startsWith("wow.")) {
+        return `${tool.split(".")[1]} tool`;
+      }
+      return "General summarization tool";
+  }
+};
 
+const buildToolPrompt = ({ tool, text, controls = {}, options = {} }) => {
+  const { length = 0.5, tone = "professional", language = "en", focus = "student" } = controls;
+  const metadata = TOOL_OPENAI_METADATA[tool.split(".")[0]] || TOOL_OPENAI_METADATA.summary;
+  const instructions = [
+    "You are StudySummarize, an AI companion for students, managers, developers, and lawyers.",
+    `Tool: ${tool}`,
+    `Focus: ${focus}`,
+    `Tone: ${tone}`,
+    `Language: ${language}`,
+    metadata.instructions,
+    "Produce only valid JSON with the following shape:",
+    JSON.stringify(
+      {
+        output: { type: metadata.outputType, data: "..." },
+        highlights: [
+          { start: 0, end: 0, reason: "..." },
+        ],
+      },
+      null,
+      2
+    ),
+    `Summary length slider: ${Math.round(length * 100)}% (0 = short, 100 = long).`,
+    options.sectioned ? `Section limit: ${options.sectioned.maxSectionChars} chars.` : null,
+    options.rewrite ? `Rewrite mode: ${options.rewrite.mode}.` : null,
+    "Respond using clean JSON only (no markdown, no surrounding text).",
+    "Text:",
+    text,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return instructions;
+};
+
+const ensureApiKey = () => {
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new AppError(
       "OPENAI_API_KEY is missing. Set it in your environment to use the openai provider.",
@@ -33,6 +85,34 @@ const summarize = async ({ text, length, format }) => {
       "CONFIG_ERROR"
     );
   }
+  return apiKey;
+};
+
+const summarize = async ({ text, length, format }) => {
+  const apiKey = ensureApiKey();
+
+  const getPrompt = ({ text: promptText, length: promptLength, format: promptFormat }) => {
+    const lengthInstructions = {
+      short: "2-3 sentences",
+      medium: "4-6 sentences",
+      detailed: "7-10 sentences",
+      unlimited: "As long as needed, with no length limit",
+    };
+
+    const formatInstruction =
+      promptFormat === "bullets"
+        ? "Return bullet points starting with '- '."
+        : "Return a single paragraph.";
+
+    return [
+      "You are a helpful assistant that summarizes study notes for students.",
+      `Summary length: ${lengthInstructions[promptLength]}.`,
+      formatInstruction,
+      "Keep the summary concise and clear.",
+      "Text:",
+      promptText,
+    ].join("\n");
+  };
 
   const response = await debugFetch("summary_generate", "https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -71,18 +151,58 @@ const summarize = async ({ text, length, format }) => {
   return content;
 };
 
+const runTool = async ({ tool, text, controls = {}, options = {} }) => {
+  const apiKey = ensureApiKey();
+  const prompt = buildToolPrompt({ tool, text, controls, options });
+  const response = await debugFetch("tool_run", "https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new AppError(`OpenAI tool run failed: ${errorBody}`, 502, "PROVIDER_ERROR");
+  }
+
+  const bodyText = await response.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch (err) {
+    throw new AppError("OpenAI tool response could not be parsed.", 502, "PROVIDER_ERROR");
+  }
+
+  if (!parsed?.output) {
+    throw new AppError("OpenAI tool response missing output.", 502, "PROVIDER_ERROR");
+  }
+
+  return {
+    output: parsed.output,
+    highlights: Array.isArray(parsed.highlights) ? parsed.highlights : [],
+    meta: {
+      provider: "openai",
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    },
+  };
+};
+
 module.exports = {
   summarize,
   generateExam: async ({ text, title, config }) => {
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      throw new AppError(
-        "OPENAI_API_KEY is missing. Set it in your environment to use the openai provider.",
-        400,
-        "CONFIG_ERROR"
-      );
-    }
+    const apiKey = ensureApiKey();
 
     const prompt = [
       "You are an assistant that builds practice exams from study notes.",
@@ -228,4 +348,5 @@ module.exports = {
       blueprint: parsed.blueprint,
     };
   },
+  runTool,
 };

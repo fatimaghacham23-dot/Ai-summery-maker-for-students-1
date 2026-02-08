@@ -18,6 +18,10 @@ const healthRouter = require("./src/routes/health");
 const summarizeRouter = require("./src/routes/summarize");
 const examsRouter = require("./src/routes/exams");
 const knowledgeRouter = require("./src/routes/knowledge");
+const toolsRouter = require("./src/routes/tools");
+const persistenceRouter = require("./src/routes/persistence");
+const shareViewRouter = require("./src/routes/shareView");
+const inputsRouter = require("./src/routes/inputs");
 const { debugRouter } = require("./src/debug/debugRoutes");
 const { debugSessionMiddleware } = require("./src/debug/debugSessionMiddleware");
 const { apiDebugRecorder } = require("./src/debug/apiDebugRecorder");
@@ -94,6 +98,10 @@ app.use("/api", apiDebugRecorder);
 app.use("/api", summarizeRouter);
 app.use("/api", examsRouter);
 app.use("/api", knowledgeRouter);
+app.use("/api", persistenceRouter);
+app.use("/api/inputs", inputsRouter);
+app.use("/api/tools", toolsRouter);
+app.use(shareViewRouter);
 app.use("/__debug", debugRouter);
 
 /**

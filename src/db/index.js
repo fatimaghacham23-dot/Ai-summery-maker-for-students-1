@@ -82,6 +82,48 @@ const createSchema = () => {
       INSERT INTO knowledge_chunks_fts(rowid, text, subject, title, source)
       VALUES (new.rowid, new.text, new.subject, new.title, new.source);
     END;
+    
+    CREATE TABLE IF NOT EXISTS documents (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      sourceType TEXT NOT NULL,
+      sourceRef TEXT,
+      text TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS runs (
+      id TEXT PRIMARY KEY,
+      documentId TEXT,
+      tool TEXT NOT NULL,
+      paramsJson TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT,
+      outputJson TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY (documentId) REFERENCES documents(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS saved_items (
+      id TEXT PRIMARY KEY,
+      documentId TEXT,
+      runId TEXT,
+      title TEXT,
+      tagsJson TEXT,
+      folder TEXT,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY (documentId) REFERENCES documents(id),
+      FOREIGN KEY (runId) REFERENCES runs(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS share_links (
+      id TEXT PRIMARY KEY,
+      runId TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expiresAt TEXT,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY (runId) REFERENCES runs(id)
+    );
   `);
 };
 
