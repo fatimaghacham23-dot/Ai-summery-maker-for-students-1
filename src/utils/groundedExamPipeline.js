@@ -869,6 +869,177 @@ const buildScenarioContext = ({ sentenceText, concept, limit = 4 }) => {
   };
 };
 
+const buildFillBlankUltraFallbackFromSentence = ({ sentence, seedSalt, subjectCategory }) => {
+  if (!sentence?.text || sentence.isHeading) {
+    return null;
+  }
+  const evidence = ensureSentence(sentence.text);
+  if (countWords(evidence) < 8) {
+    return null;
+  }
+  const rng = rngFromString(`${seedSalt || ""}|fb-ultra|${sentence.id}`);
+  const tokens = normalizePromptTokens(evidence, DEFAULT_STOPWORDS).filter((t) => t.length >= 4);
+  if (!tokens.length) {
+    return null;
+  }
+  const picked = shuffleDeterministic([...new Set(tokens)], rng)[0];
+  if (!picked) {
+    return null;
+  }
+  const pattern = new RegExp(`\\b${escapeRegex(picked)}\\b`, "i");
+  if (!pattern.test(evidence)) {
+    return null;
+  }
+  const blankedSentence = ensureSentence(evidence.replace(pattern, BLANK_TOKEN));
+  if (!blankedSentence.includes(BLANK_TOKEN)) {
+    return null;
+  }
+  const prompt = formatFillBlankPrompt({ blankedSentence, topic: picked });
+  if (!prompt) {
+    return null;
+  }
+  const statementForContext = extractFillBlankStatementForComparison(prompt);
+  const contextWords = countWords(statementForContext.replace(BLANK_TOKEN, ""));
+  if (contextWords < 10) {
+    return null;
+  }
+  const filledEvidence = statementForContext.replace(BLANK_TOKEN, picked);
+  return {
+    id: hashToUuid(`${seedSalt || sentence.id}|fb-ultra|${sentence.id}`),
+    type: "fillBlank",
+    topic: picked,
+    topicConceptId: `fallback-fb-${sentence.id}`,
+    bloomLevel: "L2",
+    prompt,
+    answerKeyBlank: picked,
+    explanation: filledEvidence,
+    grounding: {
+      sourceSentenceIds: [sentence.id],
+      evidenceSnippets: [evidence],
+    },
+    points: POINTS_BY_TYPE.fillBlank,
+    meta: {
+      difficulty: "medium",
+      tags: ["fallback"],
+      regeneratedFrom: seedSalt || null,
+      templateId: "fillBlank_fallback_ultra",
+      templateFamily: "fallback",
+      subjectCategory: subjectCategory || null,
+    },
+  };
+};
+
+const buildDeterministicScenarioMcqFallback = ({
+  sentences,
+  subjectCategory,
+  seedSalt,
+  usedSentenceIds,
+  startIndex = 0,
+}) => {
+  if (!Array.isArray(sentences) || !sentences.length) {
+    return null;
+  }
+  const used = usedSentenceIds instanceof Set ? usedSentenceIds : new Set();
+  for (let offset = 0; offset < sentences.length; offset += 1) {
+    const sentence = sentences[(startIndex + offset) % sentences.length];
+    if (!sentence || sentence.isHeading) {
+      continue;
+    }
+    if (used.has(sentence.id)) {
+      continue;
+    }
+    const candidate = buildMcqFallbackFromSentence({
+      sentence,
+      sentences,
+      subjectCategory,
+      seedSalt,
+    });
+    if (candidate) {
+      used.add(sentence.id);
+      return candidate;
+    }
+  }
+  if (used.size) {
+    return buildDeterministicScenarioMcqFallback({
+      sentences,
+      subjectCategory,
+      seedSalt,
+      usedSentenceIds: new Set(),
+      startIndex,
+    });
+  }
+  return null;
+};
+
+const buildTrueFalseFallbackFromSentence = ({ sentence, seedSalt, subjectCategory }) => {
+  if (!sentence?.text || sentence.isHeading) {
+    return null;
+  }
+  const evidence = ensureSentence(sentence.text);
+  if (countWords(evidence) < 2) {
+    return null;
+  }
+  const rng = rngFromString(`${seedSalt || ""}|tf-fallback|${sentence.id}`);
+  const answerKeyBool = Math.floor((rng || Math.random)() * 2) === 0;
+  const prompt = `True or False: ${evidence}`;
+  return {
+    id: hashToUuid(`${seedSalt || sentence.id}|tf-fallback|${sentence.id}`),
+    type: "trueFalse",
+    topic: "Scenario",
+    topicConceptId: `fallback-tf-${sentence.id}`,
+    bloomLevel: "L2",
+    prompt,
+    classification: "Application",
+    answerKeyBool,
+    explanation: `${evidence} This statement is ${answerKeyBool ? "true" : "false"} based on the source text. The explanation references the same evidence sentence.`,
+    grounding: {
+      sourceSentenceIds: [sentence.id],
+      evidenceSnippets: [evidence],
+    },
+    points: POINTS_BY_TYPE.trueFalse,
+    meta: {
+      difficulty: "medium",
+      tags: ["fallback"],
+      regeneratedFrom: seedSalt || null,
+      templateId: "tf_fallback_deterministic",
+      templateFamily: "fallback",
+      subjectCategory: subjectCategory || null,
+    },
+  };
+};
+
+const buildDeterministicTrueFalseFallback = ({
+  sentences,
+  subjectCategory,
+  seedSalt,
+  usedSentenceIds,
+  startIndex = 0,
+}) => {
+  if (!Array.isArray(sentences) || !sentences.length) {
+    return null;
+  }
+  const used = usedSentenceIds instanceof Set ? usedSentenceIds : new Set();
+  for (let offset = 0; offset < sentences.length; offset += 1) {
+    const sentence = sentences[(startIndex + offset) % sentences.length];
+    if (!sentence || sentence.isHeading) {
+      continue;
+    }
+    if (used.has(sentence.id)) {
+      continue;
+    }
+    const candidate = buildTrueFalseFallbackFromSentence({
+      sentence,
+      seedSalt,
+      subjectCategory,
+    });
+    if (candidate) {
+      used.add(sentence.id);
+      return candidate;
+    }
+  }
+  return null;
+};
+
 const renderSafeScenarioPrompt = ({ context, rng }) => {
   if (!context) {
     return null;
@@ -876,6 +1047,23 @@ const renderSafeScenarioPrompt = ({ context, rng }) => {
   const wrapper =
     SAFE_SCENARIO_WRAPPERS[Math.floor((rng || Math.random)() * SAFE_SCENARIO_WRAPPERS.length)];
   return ensureSentence(wrapper(context));
+};
+
+const extractFillBlankStatementForComparison = (prompt) => {
+  const raw = stripFillBlankTopicLine(prompt);
+  const hintMatch = raw.match(/^(.*?)(?:\s*\(?hint:)/i);
+  const trimmedRaw = hintMatch ? hintMatch[1] : raw;
+  if (!trimmedRaw.includes(BLANK_TOKEN)) {
+    return normalizeWhitespace(trimmedRaw);
+  }
+  const lastColon = trimmedRaw.lastIndexOf(":");
+  if (lastColon !== -1) {
+    const afterLast = trimmedRaw.slice(lastColon + 1);
+    if (afterLast.includes(BLANK_TOKEN)) {
+      return normalizeWhitespace(afterLast);
+    }
+  }
+  return normalizeWhitespace(trimmedRaw);
 };
 
 const getLinesWithOffsets = (text) => {
@@ -1393,6 +1581,8 @@ const detectSubjectCategory = (text) => {
   if (!str) {
     return "other";
   }
+  const lowered = str.toLowerCase();
+  const trimmedLen = lowered.trim().length;
   const mathSignals = [
     /[=±×÷√π]/,
     /[A-Za-z]\s*=\s*[^=]/,
@@ -1409,8 +1599,180 @@ const detectSubjectCategory = (text) => {
   if (hits >= 2 || isFormulaLike(str)) {
     return "math";
   }
+  if (trimmedLen < 120) {
+    return "other";
+  }
+  const allowShortScienceSignals = false;
+  const subjectSignals = [
+    {
+      subject: "science",
+      patterns: [
+        /\bphotosynthesis\b/i,
+        /\bchlorophyll\b/i,
+        /\bcarbon dioxide\b/i,
+        /\bglucose\b/i,
+        /\boxygen\b/i,
+        /\becosystem\b/i,
+        /\bcell(s)?\b/i,
+        /\batom(s)?\b/i,
+        /\benergy\b/i,
+      ],
+      threshold: 2,
+    },
+    {
+      subject: "english",
+      patterns: [/\bmodifier\b/i, /\bpunctuation\b/i, /\btense\b/i, /\bgrammar\b/i],
+      threshold: 2,
+    },
+    {
+      subject: "geography",
+      patterns: [/\blatitude\b/i, /\blongitude\b/i, /\bclimate\b/i, /\berosion\b/i],
+      threshold: 2,
+    },
+    {
+      subject: "cs",
+      patterns: [/\balgorithm\b/i, /\bthread(s)?\b/i, /\bmemory\b/i, /\bipo\b/i],
+      threshold: 2,
+    },
+    {
+      subject: "history",
+      patterns: [/\brevolution\b/i, /\bprimary source\b/i, /\bsecondary source\b/i, /\bempire\b/i],
+      threshold: 2,
+    },
+    {
+      subject: "civics",
+      patterns: [/\bright(s)?\b/i, /\bresponsibilit(y|ies)\b/i, /\bgovernment\b/i, /\blaw(s)?\b/i],
+      threshold: 2,
+    },
+  ];
+  for (const entry of subjectSignals) {
+    if (allowShortScienceSignals && entry.subject !== "science") {
+      continue;
+    }
+    let score = 0;
+    entry.patterns.forEach((pattern) => {
+      if (pattern.test(lowered)) {
+        score += 1;
+      }
+    });
+    if (score >= entry.threshold) {
+      return entry.subject;
+    }
+  }
   return "other";
 };
+
+function buildMcqFallbackFromSentence({
+  sentence,
+  sentences,
+  subjectCategory,
+  seedSalt,
+}) {
+  if (!sentence?.text || sentence.isHeading) {
+    return null;
+  }
+  const evidence = ensureSentence(sentence.text);
+  if (countWords(evidence) < 6) {
+    return null;
+  }
+  const rng = rngFromString(`${seedSalt || ""}|mcq-fallback|${sentence.id}`);
+  const evidenceTokens = normalizePromptTokens(evidence, DEFAULT_STOPWORDS).filter((t) => t.length >= 4);
+  if (evidenceTokens.length < 4) {
+    return null;
+  }
+  const pickedTokens = shuffleDeterministic([...new Set(evidenceTokens)], rng).slice(0, 4);
+  const prompt = `In this scenario, which statement is supported by the text about ${pickedTokens[0]}?`;
+
+  const distractorPool = shuffleDeterministic(
+    (sentences || []).filter((s) => s && s.id !== sentence.id && !s.isHeading && String(s.text || "").trim()),
+    rng
+  );
+  const replacementTokens = [];
+  distractorPool.forEach((s) => {
+    if (replacementTokens.length >= 8) {
+      return;
+    }
+    normalizePromptTokens(s.text, DEFAULT_STOPWORDS)
+      .filter((t) => t.length >= 4)
+      .forEach((t) => {
+        if (replacementTokens.length < 8 && !replacementTokens.includes(t) && !pickedTokens.includes(t)) {
+          replacementTokens.push(t);
+        }
+      });
+  });
+  if (!replacementTokens.length) {
+    replacementTokens.push("process", "system", "change", "result");
+  }
+
+  const mutate = (base, tokenIndex) => {
+    const target = pickedTokens[tokenIndex % pickedTokens.length];
+    const replacement = replacementTokens[tokenIndex % replacementTokens.length];
+    const pattern = new RegExp(`\\b${escapeRegex(target)}\\b`, "i");
+    if (!pattern.test(base)) {
+      return null;
+    }
+    return ensureSentence(base.replace(pattern, replacement));
+  };
+
+  const correctChoice = evidence;
+  const distractors = [];
+  for (let i = 0; i < 6 && distractors.length < 3; i += 1) {
+    const candidate = mutate(evidence, i);
+    if (!candidate) {
+      continue;
+    }
+    const normalized = normalizeWhitespace(candidate).toLowerCase();
+    if (
+      normalized === normalizeWhitespace(correctChoice).toLowerCase() ||
+      distractors.some((d) => normalizeWhitespace(d).toLowerCase() === normalized)
+    ) {
+      continue;
+    }
+    distractors.push(candidate);
+  }
+  while (distractors.length < 3) {
+    const idx = distractors.length;
+    const token = replacementTokens[idx % replacementTokens.length];
+    const candidate = ensureSentence(`${evidence} (Focus: ${token}.)`);
+    distractors.push(candidate);
+  }
+
+  const choiceObjs = [
+    { choice: correctChoice, isCorrect: true },
+    ...distractors.map((choice) => ({ choice, isCorrect: false })),
+  ].slice(0, 4);
+  const shuffled = shuffleDeterministic(choiceObjs, rngFromString(`${seedSalt || ""}|mcq-fallback|shuffle|${sentence.id}`));
+  const answerIndex = shuffled.findIndex((item) => item.isCorrect);
+  const answerKey = choiceLabels[Math.max(0, answerIndex)];
+  const choices = shuffled.map((item) => item.choice);
+  return {
+    id: hashToUuid(`${seedSalt || sentence.id}|mcq-fallback|${sentence.id}`),
+    type: "mcq",
+    topic: pickedTokens[0] || "Scenario",
+    topicConceptId: `fallback-${sentence.id}`,
+    bloomLevel: "L3",
+    prompt,
+    choices,
+    answerKey,
+    explanation: evidence,
+    grounding: {
+      sourceSentenceIds: [sentence.id],
+      evidenceSnippets: [evidence],
+    },
+    points: POINTS_BY_TYPE.mcq,
+    meta: {
+      difficulty: "medium",
+      tags: ["fallback"],
+      regeneratedFrom: seedSalt || null,
+      templateId: "mcq_fallback_deterministic",
+      templateFamily: "scenario-application",
+      choiceFormat: "statement",
+      category: "fallback",
+      mathCategory: null,
+      subjectCategory: subjectCategory || null,
+    },
+  };
+}
 
 const detectSubjectsFromHeadings = (text) => {
   const lines = getLinesWithOffsets(text);
@@ -4509,8 +4871,11 @@ const buildMcq = ({
   let answerKey = null;
   let correctChoice = null;
   let choiceFormat = "statement";
-  const resolvedTemplateFamily =
-    template?.family || (forceScenarioPrompt ? "scenario-application" : null);
+  const resolvedTemplateFamily = forceScenarioPrompt
+    ? template?.family && MCQ_SCENARIO_FAMILIES.has(template.family)
+      ? template.family
+      : "scenario-application"
+    : template?.family || null;
 
   const templateChoiceSet = template?.buildChoices
     ? template.buildChoices({
@@ -4936,6 +5301,8 @@ const buildFillBlank = ({ concept, sentenceMap, difficulty, seedSalt, template, 
   const blanked = selection.blanked;
   const prompt = formatFillBlankPrompt({ blankedSentence: blanked, topic: concept?.name });
   const answerText = String(selection.answerKey || selection.term || "").trim();
+  const statementForContext = extractFillBlankStatementForComparison(prompt);
+  const filledEvidence = statementForContext.replace(BLANK_TOKEN, answerText);
 
   return {
     id: hashToUuid(`${seedSalt || concept.id}|fillBlank|${concept.id}|${template?.id || "default"}`),
@@ -4946,7 +5313,7 @@ const buildFillBlank = ({ concept, sentenceMap, difficulty, seedSalt, template, 
     prompt,
     answerKey: answerText,
     answerKeyBlank: answerText,
-    explanation: sentence,
+    explanation: filledEvidence,
     grounding,
     points: POINTS_BY_TYPE.fillBlank,
     meta: {
@@ -5097,8 +5464,14 @@ const buildFillBlankFallbackFromSentence = ({
   if (!prompt) {
     return null;
   }
+  const statementForContext = extractFillBlankStatementForComparison(prompt);
+  const contextWords = countWords(statementForContext.replace(BLANK_TOKEN, ""));
+  if (contextWords < 10) {
+    return null;
+  }
   const answerText = String(selection.answerKey || "").trim();
   const topicId = `fallback_${hashId(`${sentence.id}|${answerText}`)}`;
+  const filledEvidence = statementForContext.replace(BLANK_TOKEN, answerText);
   return {
     id: hashToUuid(`${seedSalt}|fillBlankFallback|${sentence.id}|${answerText}`),
     type: "fillBlank",
@@ -5108,7 +5481,7 @@ const buildFillBlankFallbackFromSentence = ({
     prompt,
     answerKey: answerText,
     answerKeyBlank: answerText,
-    explanation: sentence.text,
+    explanation: filledEvidence,
     grounding: {
       sourceSentenceIds: [sentence.id],
       evidenceSnippets: [sentence.text],
@@ -5952,6 +6325,9 @@ const getMcqFamilySequence = (subjectCategory) => {
 
 const getScenarioFamiliesForSubject = (subject) => {
   const normalized = canonicalSubjectKey(subject);
+  if (normalized === "civics") {
+    return new Set(["scenario-application"]);
+  }
   const families = SUBJECT_SCENARIO_FAMILY_LOOKUP.get(normalized);
   if (!families) {
     return null;
@@ -6027,6 +6403,8 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
   const resolvedConfig = { ...config, strictTypes: config?.strictTypes === true };
   const difficulty = resolvedConfig?.difficulty || "medium";
   const strictTypes = resolvedConfig.strictTypes;
+  const allowDeterministicFallbacks =
+    strictTypes && String(augmentedText || "").trim().length >= 200;
 
   const examId = hashToUuid(
     `${resolvedSeed}|${normalizeWhitespace(title || "")}|${JSON.stringify(resolvedConfig)}`
@@ -6157,6 +6535,8 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     relaxMcqOverlap,
     preferredFamilies = null,
   }) => {
+    const resolvedForceScenarioPrompt =
+      Boolean(forceScenarioPrompt) || normalizeSubjectKey(subjectForQuestion) === "civics";
     let q = null;
     let attempts = 0;
     const attemptedTemplateIds = new Set();
@@ -6268,7 +6648,7 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
           sectionSentenceIdsMap,
           sectionTokenSets,
           sectionTitleMap,
-          forceScenarioPrompt,
+          forceScenarioPrompt: resolvedForceScenarioPrompt,
         });
         if (!q && strictTypes && normalizeSubjectKey(subjectForQuestion) === "other") {
           const extraTokens = collectOtherDefinitionTokens({
@@ -6303,7 +6683,7 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
               sectionSentenceIdsMap,
               sectionTokenSets,
               sectionTitleMap,
-              forceScenarioPrompt,
+              forceScenarioPrompt: resolvedForceScenarioPrompt,
             });
           }
         }
@@ -7220,11 +7600,16 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     (resolvedConfig?.types?.mcq || 0) - questions.filter((q) => q.type === "mcq").length
   );
   if (mcqNeeded > 0) {
+    const usedSentenceIds = new Set();
+    questions.forEach((q) => {
+      (q?.grounding?.sourceSentenceIds || []).forEach((id) => usedSentenceIds.add(id));
+    });
     for (let i = 0; i < mcqNeeded; i += 1) {
       let q = null;
       let attempts = 0;
+      let subjectForQuestion = fallbackSubjectKey;
       while (!q && attempts < MAX_MCQ_COMPLETION_ATTEMPTS) {
-        const subjectForQuestion =
+        subjectForQuestion =
           subjectPlanSubjects.length
             ? normalizeSubjectKey(
                 subjectPlanSubjects[(questions.length + i + attempts) % subjectPlanSubjects.length]
@@ -7244,6 +7629,17 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
         });
         attempts += 1;
       }
+      if (!q) {
+        if (allowDeterministicFallbacks) {
+          q = buildDeterministicScenarioMcqFallback({
+            sentences,
+            subjectCategory: subjectForQuestion,
+            seedSalt: `${resolvedSeed}|mcqCompletionFallback|${i}`,
+            usedSentenceIds,
+            startIndex: questions.length + i,
+          });
+        }
+      }
       if (q) {
         questions.push(q);
       }
@@ -7262,7 +7658,10 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
       }
     });
     const totalMcq = questionsSnapshot.length;
-    const requiredApplied = Math.ceil(totalMcq * 0.5);
+    const plannedMcq = resolvedConfig?.types?.mcq || 0;
+    const requiredApplied = strictTypes
+      ? Math.ceil(Math.max(totalMcq, plannedMcq) * 0.5)
+      : Math.ceil(totalMcq * 0.5);
     const deficit = Math.max(0, requiredApplied - appliedCount);
     return {
       totalMcq,
@@ -7280,6 +7679,10 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     }
     let deficit = initialShare.deficit;
     const generatedFamilies = {};
+    const usedSentenceIds = new Set();
+    questions.forEach((q) => {
+      (q?.grounding?.sourceSentenceIds || []).forEach((id) => usedSentenceIds.add(id));
+    });
     const candidateIndexes = questions
       .map((q, idx) => ({ q, idx }))
       .filter((entry) => entry.q?.type === "mcq" && !isScenarioFamilyMcq(entry.q))
@@ -7307,11 +7710,22 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
         relaxMcqOverlap: true,
         preferredFamilies: new Set(scenarioFamilies),
       });
-      questions[index] = replacement || existing;
+      const fallbackReplacement =
+        !replacement && allowDeterministicFallbacks
+          ? buildDeterministicScenarioMcqFallback({
+              sentences,
+              subjectCategory: subjectForQuestion,
+              seedSalt: `${resolvedSeed}|scenarioRepairFallback|${index}`,
+              usedSentenceIds,
+              startIndex: index,
+            })
+          : null;
+      questions[index] = replacement || fallbackReplacement || existing;
       rebuildUsageState();
-      if (replacement && isScenarioFamilyMcq(replacement)) {
+      const finalReplacement = questions[index];
+      if (finalReplacement && isScenarioFamilyMcq(finalReplacement)) {
         deficit -= 1;
-        const family = replacement.meta?.templateFamily;
+        const family = finalReplacement.meta?.templateFamily;
         if (family) {
           generatedFamilies[family] = (generatedFamilies[family] || 0) + 1;
         }
@@ -7331,6 +7745,10 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     if (!strictTypes || totalMissing === 0) {
       return;
     }
+    const usedSentenceIds = new Set();
+    questions.forEach((q) => {
+      (q?.grounding?.sourceSentenceIds || []).forEach((id) => usedSentenceIds.add(id));
+    });
     let offset = 0;
     Object.entries(missing).forEach(([type, count]) => {
       for (let i = 0; i < count; i += 1) {
@@ -7374,6 +7792,15 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
                 preferredFamilies: scenarioPreferred,
               });
           }
+          if (!extra && allowDeterministicFallbacks) {
+            extra = buildDeterministicScenarioMcqFallback({
+              sentences,
+              subjectCategory: subjectForQuestion,
+              seedSalt: `${resolvedSeed}|strictFillMcqFallback|${startIndex}`,
+              usedSentenceIds,
+              startIndex,
+            });
+          }
         } else {
           extra = buildQuestionCandidate({
             type,
@@ -7390,7 +7817,7 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
   };
 
   const runDeterministicFillBlankFallback = () => {
-    if (!strictTypes) {
+    if (!strictTypes || !allowDeterministicFallbacks) {
       return;
     }
     const missing = computeMissingCounts(resolvedConfig, questions);
@@ -7411,7 +7838,7 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
         if (fallbackQuestions.length >= needed) {
           break;
         }
-        if (usedSentenceIds.has(sentence.id)) {
+        if (!relaxContext && usedSentenceIds.has(sentence.id)) {
           continue;
         }
         if (countWords(sentence.text) < 6) {
@@ -7425,11 +7852,20 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
           stopwords: DEFAULT_STOPWORDS,
           relaxContext,
         });
-        if (!fallback) {
+        if (fallback) {
+          fallbackQuestions.push(fallback);
+          usedSentenceIds.add(sentence.id);
           continue;
         }
-        fallbackQuestions.push(fallback);
-        usedSentenceIds.add(sentence.id);
+        const ultra = buildFillBlankUltraFallbackFromSentence({
+          sentence,
+          seedSalt: `${seedSalt}|ultra|${fallbackQuestions.length}`,
+          subjectCategory,
+        });
+        if (ultra) {
+          fallbackQuestions.push(ultra);
+          usedSentenceIds.add(sentence.id);
+        }
       }
     };
     tryBuildFallbacks(false);
@@ -7439,11 +7875,49 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     fallbackQuestions.forEach((fallback) => questions.push(fallback));
   };
 
+  const runDeterministicTrueFalseFallback = () => {
+    if (!strictTypes) {
+      return;
+    }
+    const missing = computeMissingCounts(resolvedConfig, questions);
+    const needed = missing.trueFalse || 0;
+    if (needed <= 0) {
+      return;
+    }
+    const usedSentenceIds = new Set();
+    questions.forEach((q) => {
+      (q?.grounding?.sourceSentenceIds || []).forEach((id) => usedSentenceIds.add(id));
+    });
+    for (let i = 0; i < needed; i += 1) {
+      let fallback = buildDeterministicTrueFalseFallback({
+        sentences,
+        subjectCategory,
+        seedSalt: `${resolvedSeed}|tfFallback|${i}`,
+        usedSentenceIds,
+        startIndex: questions.length + i,
+      });
+      if (!fallback) {
+        fallback = buildDeterministicTrueFalseFallback({
+          sentences,
+          subjectCategory,
+          seedSalt: `${resolvedSeed}|tfFallbackReuse|${i}`,
+          usedSentenceIds: new Set(),
+          startIndex: questions.length + i,
+        });
+      }
+      if (fallback) {
+        questions.push(fallback);
+      }
+    }
+  };
+
   const preStrictScenarioShare = computeScenarioShare(questions);
   const scenarioOnlyMode = strictTypes && preStrictScenarioShare.deficit > 0;
   attemptStrictFill({ scenarioOnlyMcq: scenarioOnlyMode });
 
   runDeterministicFillBlankFallback();
+
+  runDeterministicTrueFalseFallback();
 
   const scenarioShare = enforceScenarioMcqShare();
 
@@ -7457,6 +7931,10 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     const mcqNonScenarioFamilies = new Set(
       mcqFamilies.filter((family) => family !== "scenario-application")
     );
+    const usedSentenceIds = new Set();
+    questions.forEach((q) => {
+      (q?.grounding?.sourceSentenceIds || []).forEach((id) => usedSentenceIds.add(id));
+    });
     const fillCounts = {};
     for (let i = 0; i < missingTotal; i += 1) {
       const subjectForQuestion =
@@ -7491,6 +7969,31 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
           subjectForQuestion,
           startIndex,
         });
+      if (!extra) {
+        extra =
+          buildDeterministicScenarioMcqFallback({
+            sentences,
+            subjectCategory: subjectForQuestion,
+            seedSalt: `${resolvedSeed}|nonStrictFallback|mcq|${startIndex}`,
+            usedSentenceIds,
+            startIndex,
+          }) ||
+          buildDeterministicTrueFalseFallback({
+            sentences,
+            subjectCategory: subjectForQuestion,
+            seedSalt: `${resolvedSeed}|nonStrictFallback|tf|${startIndex}`,
+            usedSentenceIds,
+            startIndex,
+          }) ||
+          (() => {
+            const sentence = sentences[startIndex % sentences.length];
+            return buildFillBlankUltraFallbackFromSentence({
+              sentence,
+              seedSalt: `${resolvedSeed}|nonStrictFallback|fb|${startIndex}`,
+              subjectCategory: subjectForQuestion,
+            });
+          })();
+      }
       if (!extra) {
         break;
       }

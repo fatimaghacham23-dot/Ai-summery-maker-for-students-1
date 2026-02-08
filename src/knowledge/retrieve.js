@@ -21,9 +21,18 @@ const buildFtsQuery = (queryText) => {
   return tokens.map((token) => `"${token}"`).join(" AND ");
 };
 
+const buildLikeQuery = (queryText) => {
+  const tokens = tokenizeQuery(queryText);
+  if (!tokens.length) {
+    return null;
+  }
+  return tokens.map((token) => `%${token}%`);
+};
+
 const retrieveRelevantChunks = (queryText, subjects = [], limitPerSubject = DEFAULT_LIMIT_PER_SUBJECT) => {
   const ftsQuery = buildFtsQuery(queryText);
-  if (!ftsQuery) {
+  const likeTokens = buildLikeQuery(queryText);
+  if (!ftsQuery || !likeTokens) {
     return [];
   }
 
@@ -33,32 +42,61 @@ const retrieveRelevantChunks = (queryText, subjects = [], limitPerSubject = DEFA
 
   const results = [];
   if (!normalizedSubjects.length) {
-    const rows = db
-      .prepare(
-        `SELECT kc.id, kc.subject, kc.source, kc.license, kc.title, kc.text
-         FROM knowledge_chunks_fts fts
-         JOIN knowledge_chunks kc ON kc.rowid = fts.rowid
-         WHERE knowledge_chunks_fts MATCH ?
-         ORDER BY bm25(knowledge_chunks_fts)
-         LIMIT ?`
-      )
-      .all(ftsQuery, Math.max(1, Number(limitPerSubject) || DEFAULT_LIMIT_PER_SUBJECT));
-    return rows;
+    try {
+      const rows = db
+        .prepare(
+          `SELECT kc.id, kc.subject, kc.source, kc.license, kc.title, kc.text
+           FROM knowledge_chunks_fts fts
+           JOIN knowledge_chunks kc ON kc.rowid = fts.rowid
+           WHERE knowledge_chunks_fts MATCH ?
+           ORDER BY bm25(knowledge_chunks_fts)
+           LIMIT ?`
+        )
+        .all(ftsQuery, Math.max(1, Number(limitPerSubject) || DEFAULT_LIMIT_PER_SUBJECT));
+      return rows;
+    } catch (error) {
+      const likeWhere = likeTokens.map(() => "(text LIKE ? OR title LIKE ? OR subject LIKE ? OR source LIKE ?)").join(" AND ");
+      const likeParams = likeTokens.flatMap((token) => [token, token, token, token]);
+      const rows = db
+        .prepare(
+          `SELECT id, subject, source, license, title, text
+           FROM knowledge_chunks
+           WHERE ${likeWhere}
+           LIMIT ?`
+        )
+        .all(...likeParams, Math.max(1, Number(limitPerSubject) || DEFAULT_LIMIT_PER_SUBJECT));
+      return rows;
+    }
   }
 
   normalizedSubjects.forEach((subject) => {
-    const rows = db
-      .prepare(
-        `SELECT kc.id, kc.subject, kc.source, kc.license, kc.title, kc.text
-         FROM knowledge_chunks_fts fts
-         JOIN knowledge_chunks kc ON kc.rowid = fts.rowid
-         WHERE knowledge_chunks_fts MATCH ?
-           AND kc.subject = ?
-         ORDER BY bm25(knowledge_chunks_fts)
-         LIMIT ?`
-      )
-      .all(ftsQuery, subject, Math.max(1, Number(limitPerSubject) || DEFAULT_LIMIT_PER_SUBJECT));
-    results.push(...rows);
+    try {
+      const rows = db
+        .prepare(
+          `SELECT kc.id, kc.subject, kc.source, kc.license, kc.title, kc.text
+           FROM knowledge_chunks_fts fts
+           JOIN knowledge_chunks kc ON kc.rowid = fts.rowid
+           WHERE knowledge_chunks_fts MATCH ?
+             AND kc.subject = ?
+           ORDER BY bm25(knowledge_chunks_fts)
+           LIMIT ?`
+        )
+        .all(ftsQuery, subject, Math.max(1, Number(limitPerSubject) || DEFAULT_LIMIT_PER_SUBJECT));
+      results.push(...rows);
+    } catch (error) {
+      const likeWhere = likeTokens.map(() => "(text LIKE ? OR title LIKE ? OR subject LIKE ? OR source LIKE ?)").join(" AND ");
+      const likeParams = likeTokens.flatMap((token) => [token, token, token, token]);
+      const rows = db
+        .prepare(
+          `SELECT id, subject, source, license, title, text
+           FROM knowledge_chunks
+           WHERE subject = ?
+             AND ${likeWhere}
+           LIMIT ?`
+        )
+        .all(subject, ...likeParams, Math.max(1, Number(limitPerSubject) || DEFAULT_LIMIT_PER_SUBJECT));
+      results.push(...rows);
+    }
   });
 
   return results;

@@ -57,32 +57,6 @@ const createSchema = () => {
     CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_subject ON knowledge_chunks(subject);
     CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source ON knowledge_chunks(source);
 
-    CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts USING fts5(
-      text,
-      subject,
-      title,
-      source,
-      content='knowledge_chunks',
-      content_rowid='rowid'
-    );
-
-    CREATE TRIGGER IF NOT EXISTS knowledge_chunks_ai AFTER INSERT ON knowledge_chunks BEGIN
-      INSERT INTO knowledge_chunks_fts(rowid, text, subject, title, source)
-      VALUES (new.rowid, new.text, new.subject, new.title, new.source);
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS knowledge_chunks_ad AFTER DELETE ON knowledge_chunks BEGIN
-      INSERT INTO knowledge_chunks_fts(knowledge_chunks_fts, rowid, text, subject, title, source)
-      VALUES ('delete', old.rowid, old.text, old.subject, old.title, old.source);
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS knowledge_chunks_au AFTER UPDATE ON knowledge_chunks BEGIN
-      INSERT INTO knowledge_chunks_fts(knowledge_chunks_fts, rowid, text, subject, title, source)
-      VALUES ('delete', old.rowid, old.text, old.subject, old.title, old.source);
-      INSERT INTO knowledge_chunks_fts(rowid, text, subject, title, source)
-      VALUES (new.rowid, new.text, new.subject, new.title, new.source);
-    END;
-    
     CREATE TABLE IF NOT EXISTS documents (
       id TEXT PRIMARY KEY,
       title TEXT,
@@ -125,6 +99,38 @@ const createSchema = () => {
       FOREIGN KEY (runId) REFERENCES runs(id)
     );
   `);
+
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts USING fts5(
+        text,
+        subject,
+        title,
+        source,
+        content='knowledge_chunks',
+        content_rowid='rowid'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS knowledge_chunks_ai AFTER INSERT ON knowledge_chunks BEGIN
+        INSERT INTO knowledge_chunks_fts(rowid, text, subject, title, source)
+        VALUES (new.rowid, new.text, new.subject, new.title, new.source);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS knowledge_chunks_ad AFTER DELETE ON knowledge_chunks BEGIN
+        INSERT INTO knowledge_chunks_fts(knowledge_chunks_fts, rowid, text, subject, title, source)
+        VALUES ('delete', old.rowid, old.text, old.subject, old.title, old.source);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS knowledge_chunks_au AFTER UPDATE ON knowledge_chunks BEGIN
+        INSERT INTO knowledge_chunks_fts(knowledge_chunks_fts, rowid, text, subject, title, source)
+        VALUES ('delete', old.rowid, old.text, old.subject, old.title, old.source);
+        INSERT INTO knowledge_chunks_fts(rowid, text, subject, title, source)
+        VALUES (new.rowid, new.text, new.subject, new.title, new.source);
+      END;
+    `);
+  } catch (error) {
+    // FTS5 may be unavailable (e.g., some Windows SQLite builds). App and tests should still run.
+  }
 };
 
 const migrateExamSchema = () => {

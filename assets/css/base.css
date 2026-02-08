@@ -1,5 +1,7 @@
 :root {
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: "Merriweather", "Georgia", "Times New Roman", serif;
+  --bg-animation-speed: 20s;
   --color-slate-950: #020617;
   --color-slate-900: #0f172a;
   --color-slate-800: #1e293b;
@@ -7,8 +9,10 @@
   --color-slate-600: #475569;
   --color-slate-500: #64748b;
   --color-slate-400: #94a3b8;
+  --color-slate-300: #cbd5e1;
   --color-slate-200: #e2e8f0;
   --color-slate-100: #f1f5f9;
+  --color-slate-50: #f8fafc;
   --color-white: #ffffff;
   --color-blue: #2563eb;
   --color-blue-strong: #1d4ed8;
@@ -16,6 +20,7 @@
   --color-amber: #f59e0b;
   --color-red: #dc2626;
   --color-muted: #64748b;
+  --shadow-sm: 0 10px 30px rgba(15, 23, 42, 0.12);
   --shadow-soft: 0 20px 45px rgba(15, 23, 42, 0.25);
   --shadow-card: 0 10px 30px rgba(15, 23, 42, 0.12);
   --radius-base: 16px;
@@ -33,12 +38,31 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: visible;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 40%), #f5f7fb;
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
   color: var(--color-slate-900);
   min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+h1,
+h2 {
+  display: inline-block;
+  text-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
 }
 
 img,
@@ -88,12 +112,21 @@ textarea {
 
 .toast-wrapper {
   position: fixed;
-  bottom: 1rem;
+  top: 1rem;
   right: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   z-index: 200;
+}
+
+@media (max-width: 900px) {
+  .toast-wrapper {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    align-items: center;
+  }
 }
 
 .loading-skeleton {

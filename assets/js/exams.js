@@ -32,6 +32,20 @@ let currentExam = null;
 let attemptsHistory = [];
 let viewLoading = false;
 
+const setQuietMode = (enabled) => {
+  document.body.classList.toggle("quiet-mode", Boolean(enabled));
+};
+
+const shouldEnableQuietMode = () => {
+  const hasQuestions = Boolean(examQuestions?.children?.length);
+  const hasExam = Boolean(currentExam);
+  return hasExam && hasQuestions;
+};
+
+const syncQuietMode = () => {
+  setQuietMode(shouldEnableQuietMode());
+};
+
 const escapeHtml = (value) =>
   String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
@@ -79,6 +93,17 @@ const setLoadingState = (isLoading) => {
   const exportsDisabled = !currentExam;
   if (exportJsonBtn) exportJsonBtn.disabled = exportsDisabled;
   if (exportHtmlBtn) exportHtmlBtn.disabled = exportsDisabled;
+
+  if (isLoading && examQuestions) {
+    examQuestions.innerHTML = `
+      <div class="loading-placeholder">
+        <div class="skeleton" style="height: 18px; width: 55%;"></div>
+        <div class="skeleton" style="height: 14px;"></div>
+        <div class="skeleton" style="height: 14px; width: 80%;"></div>
+        <div class="skeleton" style="height: 14px; width: 90%;"></div>
+      </div>
+    `;
+  }
 };
 
 const renderExamMeta = () => {
@@ -119,6 +144,7 @@ const renderExamQuestions = () => {
   if (!examQuestions) return;
   if (!currentExam) {
     examQuestions.innerHTML = "";
+    syncQuietMode();
     return;
   }
   const html = currentExam.questions
@@ -171,6 +197,7 @@ const renderExamQuestions = () => {
     })
     .join("");
   examQuestions.innerHTML = html;
+  syncQuietMode();
 };
 
 const renderResults = (payload) => {
@@ -391,6 +418,7 @@ const handleGenerateExam = async () => {
     renderExamMeta();
     renderExamQuestions();
     renderResults(null);
+    syncQuietMode();
     setExamStatus("Ready");
     showToast("Exam generated", "success");
     await loadExams();
@@ -424,6 +452,7 @@ const handleSubmitExam = async () => {
       body: JSON.stringify({ examId: currentExam.id, answers }),
     });
     renderResults(data);
+    setQuietMode(false);
     setExamStatus("Graded");
     showToast("Exam submitted", "success");
     await loadAttempts(currentExam.id);
@@ -445,6 +474,7 @@ const handleExamSelect = async (examId) => {
     renderExamMeta();
     renderExamQuestions();
     renderResults(null);
+    syncQuietMode();
     setExamStatus("Ready");
     await loadAttempts(examId);
   } catch (error) {
@@ -488,6 +518,11 @@ const clearExamInputs = () => {
   updateExamCounter();
   updateTypeStatus();
   setExamStatus("Idle");
+  currentExam = null;
+  renderExamMeta();
+  renderExamQuestions();
+  renderResults(null);
+  setQuietMode(false);
 };
 
 const bindEvents = () => {
@@ -521,6 +556,14 @@ const bindEvents = () => {
   attemptSortSelect?.addEventListener("change", renderAttemptsTable);
 };
 
+const bindLibraryOpenEvent = () => {
+  window.addEventListener("library:open-exam", (event) => {
+    const examId = event?.detail?.examId;
+    if (!examId) return;
+    handleExamSelect(examId);
+  });
+};
+
 const initExamFlow = () => {
   updateExamCounter();
   updateTypeStatus();
@@ -528,7 +571,9 @@ const initExamFlow = () => {
   setLoadingState(false);
   renderResults(null);
   renderExamMeta();
+  setQuietMode(false);
   bindEvents();
+  bindLibraryOpenEvent();
   loadExams();
   fetchKnowledgeSources();
   if (attemptPlaceholder) {

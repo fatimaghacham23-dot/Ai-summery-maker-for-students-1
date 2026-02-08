@@ -1,132 +1,102 @@
 import { buildApiUrl, requestJson } from "./api.js";
 import { showToast } from "./ui.js";
 import {
-  renderSummaryPayload,
-  setStatus,
-  getSummaryInput,
   setSummaryText,
-  setPreviewLoading,
-  handleError,
-  setHighlightSource,
 } from "./summary.js";
 
-const previewPanel = document.querySelector(".summary-preview");
-const slider = document.getElementById("toolsLengthSlider");
-const sliderValue = document.getElementById("toolsLengthValue");
-const toneSelect = document.getElementById("toolsToneSelect");
-const languageInput = document.getElementById("toolsLanguageInput");
-const focusSelect = document.getElementById("toolsFocusSelect");
-const sectionedLimitInput = document.getElementById("toolsSectionedLimit");
-const toolButtons = Array.from(document.querySelectorAll("[data-tool]")).filter(
-  (button) => !button.dataset.rewriteMode
-);
-const rewriteButtons = Array.from(document.querySelectorAll("[data-tool='rewrite']"));
-const exportButtons = Array.from(document.querySelectorAll("[data-export]"));
-const shareLinkInput = document.getElementById("toolsShareLink");
-const shareButton = document.getElementById("toolsShareBtn");
-const savedList = document.getElementById("savedList");
-const savedTitleInput = document.getElementById("savedTitleInput");
-const savedTagsInput = document.getElementById("savedTagsInput");
-const savedFolderInput = document.getElementById("savedFolderInput");
-const savedActionBtn = document.getElementById("savedActionBtn");
-const savedSearchInput = document.getElementById("savedSearchInput");
-const savedSearchButton = document.getElementById("savedSearchBtn");
-const compareLeft = document.getElementById("compareLeft");
-const compareRight = document.getElementById("compareRight");
-const compareButton = document.getElementById("compareBtn");
-const comparePanel = document.getElementById("comparePanel");
 const pdfInput = document.getElementById("pdfUploadInput");
-const docxInput = document.getElementById("docxUploadInput");
-const txtInput = document.getElementById("txtUploadInput");
-const ocrInput = document.getElementById("ocrUploadInput");
 const pdfBtn = document.getElementById("pdfUploadBtn");
-const docxBtn = document.getElementById("docxUploadBtn");
-const txtBtn = document.getElementById("txtUploadBtn");
-const ocrBtn = document.getElementById("ocrUploadBtn");
 const urlInput = document.getElementById("toolsUrlInput");
 const urlFetchBtn = document.getElementById("toolsUrlFetch");
 const youtubeInput = document.getElementById("toolsYouTubeInput");
 const youtubeFetchBtn = document.getElementById("toolsYouTubeFetch");
-const audioBtn = document.getElementById("toolsAudioBtn");
-
-let lastRunId = null;
+const youtubePastePanel = document.getElementById("youtubePastePanel");
+const youtubeTranscriptPaste = document.getElementById("youtubeTranscriptPaste");
+const youtubeOpenInstructions = document.getElementById("youtubeOpenInstructions");
+const youtubeOpenVideo = document.getElementById("youtubeOpenVideo");
+const youtubeSubmitTranscript = document.getElementById("youtubeSubmitTranscript");
 let currentDocumentId = null;
 
-const controls = () => ({
-  length: parseFloat(slider?.value || 0.5),
-  tone: toneSelect?.value || "professional",
-  language: languageInput?.value || "en",
-  focus: focusSelect?.value || "student",
-});
+const MIN_YOUTUBE_TRANSCRIPT_CHARS = 200;
 
-const updateSlider = () => {
-  if (sliderValue && slider) {
-    sliderValue.textContent = `${Math.round((slider.value || 0) * 100)}%`;
+const extractYouTubeVideoId = (rawUrl) => {
+  if (!rawUrl) {
+    return null;
   }
+  const value = String(rawUrl).trim();
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    const isYouTube = host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtu.be";
+    if (!isYouTube) {
+      return null;
+    }
+
+    const patterns = [
+      /(?:youtu\.be\/|\/shorts\/|\/embed\/|\/v\/|v=)([A-Za-z0-9_-]{11})/i,
+    ];
+    const haystack = `${parsed.href} ${parsed.pathname} ${parsed.search}`;
+    for (const pattern of patterns) {
+      const match = haystack.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+
+    const v = parsed.searchParams.get("v");
+    if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) {
+      return v;
+    }
+  } catch {
+    const match = value.match(/(?:youtu\.be\/|\/shorts\/|\/embed\/|\/v\/|v=)([A-Za-z0-9_-]{11})/i);
+    return match?.[1] || null;
+  }
+  return null;
 };
 
-const runTool = async (tool, extra = {}) => {
-  const rawText = getSummaryInput();
-  const text = rawText?.trim();
-  if (!text) {
-    showToast("Paste study text first", "error");
+const buildYouTubeWatchUrl = (videoId) =>
+  videoId ? `https://www.youtube.com/watch?v=${videoId}` : "https://www.youtube.com";
+
+const showYouTubePastePanel = () => {
+  if (!youtubePastePanel) {
     return;
   }
-
-  setHighlightSource(text);
-  setStatus("Running tool...");
-  setPreviewLoading();
-  const payload = {
-    tool,
-    text,
-    controls: controls(),
-    options: extra.options || {},
-  };
-  if (currentDocumentId) {
-    payload.documentId = currentDocumentId;
-  }
-
-  try {
-    const response = await requestJson("/api/tools/run", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    lastRunId = response.runId;
-    setStatus("Ready", "online");
-    renderSummaryPayload({
-      output: response.output,
-      highlights: response.highlights || [],
-    });
-    showToast("Tool complete", "success");
-    if (extra.onComplete) {
-      extra.onComplete(response);
-    }
-  } catch (error) {
-    console.error(error);
-    handleError(error.message || "Tool execution failed");
-  } finally {
-    previewPanel?.classList.remove("loading");
-  }
+  youtubePastePanel.hidden = false;
+  youtubeTranscriptPaste?.focus?.();
 };
 
-const handleToolButton = (button) => {
-  const tool = button.dataset.tool;
-  if (!tool) return;
-  const rewriteMode = button.dataset.rewriteMode;
-  const options = {};
+const hideYouTubePastePanel = () => {
+  if (!youtubePastePanel) {
+    return;
+  }
+  youtubePastePanel.hidden = true;
+};
 
-  if (tool === "summary.sectioned") {
-    const parsedLimit = Number.parseInt(sectionedLimitInput?.value, 10);
-    options.sectioned = {
-      maxSectionChars: Number.isFinite(parsedLimit) ? parsedLimit : 3500,
+const initTabs = () => {
+  const roots = Array.from(document.querySelectorAll(".tabs[data-tabs]"));
+  roots.forEach((root) => {
+    const tabs = Array.from(root.querySelectorAll(".tabs-list [data-tab]"));
+    const panels = Array.from(root.querySelectorAll(".tabs-panels [data-panel]"));
+    if (!tabs.length || !panels.length) return;
+
+    const activate = (name) => {
+      tabs.forEach((tab) => {
+        const isActive = tab.dataset.tab === name;
+        tab.classList.toggle("active", isActive);
+        tab.setAttribute("aria-selected", isActive ? "true" : "false");
+      });
+      panels.forEach((panel) => {
+        panel.classList.toggle("active", panel.dataset.panel === name);
+      });
     };
-  }
 
-  if (rewriteMode) {
-    options.rewrite = { mode: rewriteMode };
-  }
-
-  runTool(tool, Object.keys(options).length ? { options } : undefined);
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => activate(tab.dataset.tab));
+    });
+  });
 };
 
 const fetchDocument = async (url, endpoint) => {
@@ -176,154 +146,10 @@ const handleFileInput = (input, endpoint) => {
   });
 };
 
-const populateSavedList = (items = []) => {
-  if (!savedList) return;
-  savedList.innerHTML = "";
-  items.forEach((item) => {
-    const li = document.createElement("li");
-    li.textContent = `${item.title} · ${item.folder || "Default"}`;
-    savedList.appendChild(li);
-  });
-};
+const initSummaryInputs = () => {
+  initTabs();
 
-const populateCompareOptions = (items = []) => {
-  const options = (select) => {
-    if (!select) return;
-    const current = select.value;
-    select.innerHTML = `<option value="">Choose summary</option>`;
-    items.forEach((item) => {
-      const option = document.createElement("option");
-      option.value = item.runId;
-      option.textContent = item.title;
-      select.appendChild(option);
-    });
-    select.value = current;
-  };
-  options(compareLeft);
-  options(compareRight);
-};
-
-const loadSavedItems = async (query = "") => {
-  try {
-    const params = new URLSearchParams();
-    if (query) params.set("query", query);
-    const data = await requestJson(`/api/saved?${params.toString()}`);
-    populateSavedList(data);
-    populateCompareOptions(data);
-  } catch (error) {
-    console.error(error);
-    showToast("Unable to load saved summaries", "error");
-  }
-};
-
-const handleCompare = async () => {
-  const leftId = compareLeft?.value;
-  const rightId = compareRight?.value;
-  if (!leftId || !rightId) {
-    showToast("Select two saved summaries to compare", "error");
-    return;
-  }
-  try {
-    const [left, right] = await Promise.all([
-      requestJson(`/api/runs/${leftId}`),
-      requestJson(`/api/runs/${rightId}`),
-    ]);
-    comparePanel.innerHTML = `
-      <div>
-        <strong>${left.title || left.tool}</strong>
-        <pre>${JSON.stringify(left.output?.data || left.output || "", null, 2)}</pre>
-      </div>
-      <div>
-        <strong>${right.title || right.tool}</strong>
-        <pre>${JSON.stringify(right.output?.data || right.output || "", null, 2)}</pre>
-      </div>
-    `;
-  } catch (error) {
-    console.error(error);
-    showToast("Comparison failed", "error");
-  }
-};
-
-const handleSaveSummary = async () => {
-  if (!lastRunId) {
-    showToast("Run a tool before saving", "error");
-    return;
-  }
-  try {
-    await requestJson("/api/saved", {
-      method: "POST",
-      body: JSON.stringify({
-        runId: lastRunId,
-        title: savedTitleInput?.value || "Saved summary",
-        tags: savedTagsInput?.value
-          ? savedTagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean)
-          : [],
-        folder: savedFolderInput?.value,
-      }),
-    });
-    loadSavedItems();
-    showToast("Summary saved", "success");
-  } catch (error) {
-    console.error(error);
-    showToast("Unable to save summary", "error");
-  }
-};
-
-const handleShare = async () => {
-  if (!lastRunId) {
-    showToast("Run a tool before sharing", "error");
-    return;
-  }
-  try {
-    const data = await requestJson("/api/share", {
-      method: "POST",
-      body: JSON.stringify({ runId: lastRunId }),
-    });
-    if (shareLinkInput) {
-      const shareUrl = data.url.startsWith("http") ? data.url : `${window.location.origin}${data.url}`;
-      shareLinkInput.value = shareUrl;
-    }
-    showToast("Share link ready", "success");
-  } catch (error) {
-    console.error(error);
-    showToast("Unable to create share link", "error");
-  }
-};
-
-const handleExport = (format) => {
-  if (!lastRunId) {
-    showToast("Run a tool before exporting", "error");
-    return;
-  }
-  const anchor = document.createElement("a");
-  anchor.href = buildApiUrl(`/api/export/${lastRunId}?format=${format}`);
-  anchor.setAttribute("download", `summary.${format}`);
-  anchor.click();
-  anchor.remove();
-};
-
-const initToolsWorkspace = () => {
-  updateSlider();
-  slider?.addEventListener("input", updateSlider);
-  toolButtons.forEach((button) => button.addEventListener("click", () => handleToolButton(button)));
-  rewriteButtons.forEach((button) => button.addEventListener("click", () => handleToolButton(button)));
-  exportButtons.forEach((button) =>
-    button.addEventListener("click", () => handleExport(button.dataset.export))
-  );
-  shareButton?.addEventListener("click", handleShare);
-  savedActionBtn?.addEventListener("click", handleSaveSummary);
-  savedSearchButton?.addEventListener("click", () => loadSavedItems(savedSearchInput?.value || ""));
-  savedSearchInput?.addEventListener("keypress", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      loadSavedItems(savedSearchInput.value);
-    }
-  });
-  compareButton?.addEventListener("click", handleCompare);
   pdfBtn?.addEventListener("click", () => pdfInput?.click());
-  docxBtn?.addEventListener("click", () => docxInput?.click());
-  txtBtn?.addEventListener("click", () => txtInput?.click());
-  ocrBtn?.addEventListener("click", () => ocrInput?.click());
   urlFetchBtn?.addEventListener("click", async () => {
     if (!urlInput?.value) {
       showToast("Enter a URL first", "error");
@@ -345,30 +171,70 @@ const initToolsWorkspace = () => {
       showToast("Enter a YouTube link", "error");
       return;
     }
+    hideYouTubePastePanel();
     try {
       const data = await fetchDocument(youtubeInput.value, "/api/inputs/youtube");
+      if (data?.action === "PASTE_TRANSCRIPT") {
+        showToast("Paste transcript required", "info");
+        showYouTubePastePanel();
+        return;
+      }
       if (data?.text) {
         setSummaryText(data.text);
         currentDocumentId = data.documentId;
         showToast("Transcript loaded", "success");
+        return;
+      }
+      showToast("Unable to load transcript automatically", "error");
+    } catch (error) {
+      showToast(error.message, "error");
+      showYouTubePastePanel();
+    }
+  });
+
+  youtubeOpenInstructions?.addEventListener("click", () => {
+    const instructions = document.getElementById("youtubeInstructions");
+    if (instructions) {
+      const nextHidden = !instructions.hidden;
+      instructions.hidden = nextHidden;
+    }
+    showYouTubePastePanel();
+  });
+
+  youtubeOpenVideo?.addEventListener("click", () => {
+    const videoId = extractYouTubeVideoId(youtubeInput?.value);
+    window.open(buildYouTubeWatchUrl(videoId), "_blank", "noopener,noreferrer");
+  });
+
+  youtubeSubmitTranscript?.addEventListener("click", async () => {
+    const raw = youtubeTranscriptPaste?.value || "";
+    const cleaned = String(raw).trim();
+    if (cleaned.length < MIN_YOUTUBE_TRANSCRIPT_CHARS) {
+      showToast(`Transcript too short (min ${MIN_YOUTUBE_TRANSCRIPT_CHARS} chars)`, "error");
+      return;
+    }
+    const videoId = extractYouTubeVideoId(youtubeInput?.value);
+    try {
+      const response = await requestJson("/api/inputs/text", {
+        method: "POST",
+        body: JSON.stringify({
+          text: cleaned,
+          source: "youtube",
+          videoId: videoId || null,
+          url: videoId ? buildYouTubeWatchUrl(videoId) : null,
+        }),
+      });
+      if (response?.text) {
+        setSummaryText(response.text);
+        currentDocumentId = response.documentId;
+        showToast("Transcript loaded", "success");
+        hideYouTubePastePanel();
       }
     } catch (error) {
       showToast(error.message, "error");
     }
   });
-  audioBtn?.addEventListener("click", async () => {
-    try {
-      const data = await requestJson("/api/inputs/audio", { method: "POST" });
-      showToast(data?.note || "Audio endpoint stubbed", "info");
-    } catch (error) {
-      showToast(error.message, "error");
-    }
-  });
   handleFileInput(pdfInput, "/api/inputs/upload");
-  handleFileInput(docxInput, "/api/inputs/upload");
-  handleFileInput(txtInput, "/api/inputs/upload");
-  handleFileInput(ocrInput, "/api/inputs/ocr");
-  loadSavedItems();
 };
 
-export { initToolsWorkspace };
+export { initSummaryInputs };

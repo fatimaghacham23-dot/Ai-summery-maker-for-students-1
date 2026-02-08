@@ -57,6 +57,97 @@ const stripLanguage = (value) => {
   return filtered || null;
 };
 
+const ensureAsrQueryParams = (baseUrl) => {
+  if (!baseUrl) {
+    return baseUrl;
+  }
+  try {
+    const parsed = new URL(baseUrl);
+    if (!parsed.searchParams.get("caps")) {
+      parsed.searchParams.set("caps", "asr");
+    }
+    if (!parsed.searchParams.get("kind")) {
+      parsed.searchParams.set("kind", "asr");
+    }
+    return parsed.toString();
+  } catch {
+    return baseUrl;
+  }
+};
+
+const fetchCaptionTextWithRetry = async ({ track, videoId, cookieJar, consentCookieHeader, retryWatch }) => {
+  const formatsToTry = CAPTION_FORMAT_SEQUENCE;
+  const attempts = [];
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const fmt of formatsToTry) {
+      const result = await fetchCaptionFormat({
+        track,
+        videoId,
+        fmt,
+        cookieJar,
+        consentCookieHeader,
+      });
+      attempts.push(result);
+
+      if (result.status === "success") {
+        const parsed = parseCaptionResult(result, videoId, track.languageCode);
+        if (parsed.success) {
+          return {
+            success: true,
+            text: parsed.text,
+            track,
+            attempt: result,
+            attempts,
+          };
+        }
+      }
+
+      if (result.status === "fatal") {
+        return {
+          success: false,
+          fatal: true,
+          reason: "fetch_blocked",
+          trackLanguage: track.languageCode,
+          lastAttempt: result,
+          attempts,
+          track,
+        };
+      }
+
+      if (result.reason && isBlockedCaptionReason(result.reason)) {
+        if (cookieJar && typeof retryWatch === "function" && pass === 0) {
+          await sleep(250);
+          await retryWatch();
+          continue;
+        }
+        return {
+          success: false,
+          fatal: false,
+          reason: result.reason,
+          trackLanguage: track.languageCode,
+          lastAttempt: result,
+          attempts,
+          track,
+        };
+      }
+    }
+    if (cookieJar && typeof retryWatch === "function" && pass === 0) {
+      await sleep(250);
+      await retryWatch();
+    }
+  }
+  const lastAttempt = attempts.length ? attempts[attempts.length - 1] : null;
+  return {
+    success: false,
+    fatal: false,
+    reason: lastAttempt?.reason || "caption_fetch_empty",
+    trackLanguage: track?.languageCode || null,
+    lastAttempt,
+    attempts,
+    track,
+  };
+};
+
 const buildAcceptLanguageHeader = (primaryLanguage) => {
   const normalized = stripLanguage(primaryLanguage);
   if (!normalized) {
@@ -398,6 +489,8 @@ const logInnertubeConfigFlags = (videoId, config = {}) => {
     hasApiKey,
     hasContext,
     hasVisitorData,
+    containsInnertubeApiKeySubstring: config?.containsInnertubeApiKeySubstring ?? null,
+    apiKeyWindow: config?.apiKeyWindow ?? null,
   });
 };
 
@@ -528,11 +621,35 @@ const buildCaptionHeaders = (videoId, languagePreference) => ({
   Origin: YOUTUBE_ORIGIN,
 });
 
+const isTranscriptPayloadContentTypeAllowed = (contentType) => {
+  const ct = String(contentType || "").toLowerCase();
+  if (!ct) {
+    return false;
+  }
+  if (ct.includes("text/vtt")) {
+    return true;
+  }
+  if (ct.includes("application/json") || ct.includes("text/json")) {
+    return true;
+  }
+  if (ct.includes("text/xml") || ct.includes("application/xml")) {
+    return true;
+  }
+  if (ct.includes("text/plain")) {
+    return true;
+  }
+  return false;
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
+
 const captureResponseHeaders = (response) => {
   const responseHeaders = {};
-  response.headers.forEach((value, key) => {
-    responseHeaders[key] = value;
-  });
+  if (response?.headers && typeof response.headers.forEach === "function") {
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+  }
   return {
     responseHeaders,
     contentType: responseHeaders["content-type"] || null,
@@ -601,6 +718,97 @@ const parseYoutubeiTranscriptResponse = (payload) => {
     }
   }
   return buildTranscriptText(segments);
+};
+
+const fetchInnertubePlayerResponse = async ({ html, videoId, language, consentCookieHeader, cookieJar }) => {
+  const it = extractInnertubeConfigFromHtml(html);
+  logInnertubeConfigFlags(videoId, it.debug);
+  if (!it.ok || !it.config?.apiKey || !it.config?.context) {
+    return {
+      success: false,
+      reason: "innertube_config_missing",
+      status: null,
+      requestMade: false,
+    };
+  }
+
+  const requestUrl = `https://www.youtube.com/youtubei/v1/player?key=${it.config.apiKey}`;
+  const requestHeaders = buildBrowserHeaders({ videoId, cookieJar });
+  requestHeaders.Accept = "application/json,text/plain,*/*";
+  requestHeaders["Accept-Language"] = buildAcceptLanguageHeader(language);
+  requestHeaders["Content-Type"] = "application/json";
+  requestHeaders["Origin"] = YOUTUBE_ORIGIN;
+  requestHeaders.Referer = `${YOUTUBE_REFERER_PREFIX}${videoId}`;
+
+  if (consentCookieHeader) {
+    const newEntry = consentCookieHeader.trim();
+    const existingCookie = requestHeaders.Cookie || "";
+    const tokens = existingCookie
+      .split(";")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    if (!tokens.includes(newEntry)) {
+      requestHeaders.Cookie = [existingCookie, consentCookieHeader].filter(Boolean).join("; ");
+    }
+  }
+
+  let response;
+  try {
+    response = await fetchWithTimeout(requestUrl, {
+      method: "POST",
+      headers: requestHeaders,
+      redirect: "follow",
+      body: JSON.stringify({
+        context: it.config.context,
+        videoId,
+      }),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      reason: "fetch_error",
+      error,
+      status: null,
+      requestMade: true,
+    };
+  }
+
+  const headerSnapshot = captureResponseHeaders(response);
+  if (cookieJar) {
+    cookieJar.addFromResponseHeaders(response.headers);
+  }
+
+  if (!response.ok) {
+    return {
+      success: false,
+      reason: "non-200 status",
+      status: response.status,
+      headers: headerSnapshot,
+      requestMade: true,
+    };
+  }
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      reason: "invalid_json",
+      error,
+      status: response.status,
+      headers: headerSnapshot,
+      requestMade: true,
+    };
+  }
+
+  return {
+    success: true,
+    status: response.status,
+    headers: headerSnapshot,
+    payload,
+    requestMade: true,
+  };
 };
 
 const tryYoutubeiGetTranscript = async ({
@@ -807,11 +1015,27 @@ const logCaptionFetchAttempt = ({
   debugLog("[youtube-transcript] caption fetch", logPayload);
 };
 
-const fetchCaptionFormat = async ({ track, videoId, fmt }) => {
+const fetchCaptionFormat = async ({ track, videoId, fmt, cookieJar, consentCookieHeader }) => {
   const fmtLabel = fmt || "(none)";
-  const targetUrl = buildCaptionUrlWithFmt(track.baseUrl, fmt);
+  const baseUrl = isAutoGeneratedTrack(track) ? ensureAsrQueryParams(track.baseUrl) : track.baseUrl;
+  const targetUrl = buildCaptionUrlWithFmt(baseUrl, fmt);
   const trackLanguageTag = getTrackLanguageTag(track);
-  const headers = buildCaptionHeaders(videoId, trackLanguageTag);
+  const headers = buildBrowserHeaders({ videoId, cookieJar });
+  headers.Accept = YOUTUBE_CAPTION_ACCEPT;
+  headers["Accept-Language"] = buildAcceptLanguageHeader(trackLanguageTag);
+  headers.Referer = `${YOUTUBE_REFERER_PREFIX}${videoId}`;
+  headers.Origin = YOUTUBE_ORIGIN;
+  if (consentCookieHeader) {
+    const newEntry = consentCookieHeader.trim();
+    const existingCookie = headers.Cookie || "";
+    const tokens = existingCookie
+      .split(";")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    if (!tokens.includes(newEntry)) {
+      headers.Cookie = [existingCookie, consentCookieHeader].filter(Boolean).join("; ");
+    }
+  }
   const requestOptions = {
     method: "GET",
     headers,
@@ -872,12 +1096,18 @@ const fetchCaptionFormat = async ({ track, videoId, fmt }) => {
     };
   }
 
+  if (cookieJar) {
+    cookieJar.addFromResponseHeaders(response.headers);
+  }
+
   const bodyText = await response.text();
   const bodySnippet = String(bodyText || "").slice(0, 200);
   const bodyLength = bodyText.length;
   const emptyBody = !bodyText.trim();
   const contentType = headerSnapshot.contentType || "";
   const isHtmlResponse = contentType.toLowerCase().includes("text/html");
+  const allowedContentType = isTranscriptPayloadContentTypeAllowed(contentType);
+  const isBlockedContentType = !allowedContentType;
 
   logCaptionFetchAttempt({
     videoId,
@@ -891,6 +1121,8 @@ const fetchCaptionFormat = async ({ track, videoId, fmt }) => {
     bodyLength,
     message: isHtmlResponse
       ? "unexpected html response"
+      : isBlockedContentType
+      ? "unexpected content-type"
       : emptyBody
       ? "empty body"
       : undefined,
@@ -898,10 +1130,10 @@ const fetchCaptionFormat = async ({ track, videoId, fmt }) => {
     requestMethod: requestOptions.method,
   });
 
-  if (emptyBody || isHtmlResponse) {
+  if (emptyBody || isHtmlResponse || isBlockedContentType) {
     return {
       status: "retry",
-      reason: isHtmlResponse ? "unexpected_html" : "empty body",
+      reason: isHtmlResponse || isBlockedContentType ? "unexpected_html" : "empty body",
       fmt,
       fmtLabel,
       url: targetUrl.href,
@@ -1214,8 +1446,10 @@ const runYoutubeiWithRetry = async ({
 };
 
 const fetchYouTubeTranscript = async (videoId, language) => {
+  const enableCaptionRetries = process.env.NODE_ENV !== "test";
+  const enableInnertubePlayerDiscovery = process.env.NODE_ENV !== "test";
   const cookieJar = new SimpleCookieJar();
-  const consentCookieHeader = await fetchYouTubeConsentCookieHeader(cookieJar);
+  let consentCookieHeader = await fetchYouTubeConsentCookieHeader(cookieJar);
   const watchData = await fetchWatchPageData({
     videoId,
     language,
@@ -1227,8 +1461,25 @@ const fetchYouTubeTranscript = async (videoId, language) => {
   const tracks =
     captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
   const captionsExists = Boolean(captions);
-  const trackCount = tracks.length;
-  const orderedTracks = prioritizeCaptionTracks(tracks);
+  let resolvedTracks = tracks;
+  if (enableInnertubePlayerDiscovery && (!Array.isArray(resolvedTracks) || resolvedTracks.length === 0)) {
+    const playerResult = await fetchInnertubePlayerResponse({
+      html,
+      videoId,
+      language,
+      consentCookieHeader,
+      cookieJar,
+    });
+    const playerTracks =
+      playerResult?.success && playerResult.payload?.captions?.playerCaptionsTracklistRenderer?.captionTracks
+        ? playerResult.payload.captions.playerCaptionsTracklistRenderer.captionTracks
+        : [];
+    if (Array.isArray(playerTracks) && playerTracks.length) {
+      resolvedTracks = playerTracks;
+    }
+  }
+  const trackCount = Array.isArray(resolvedTracks) ? resolvedTracks.length : 0;
+  const orderedTracks = prioritizeCaptionTracks(resolvedTracks);
   const selectedTrack = orderedTracks[0] || null;
   const selectedTrackLanguage = getTrackLanguageTag(selectedTrack);
   const selectedTrackName = getTrackDisplayName(selectedTrack);
@@ -1290,10 +1541,11 @@ const fetchYouTubeTranscript = async (videoId, language) => {
     if (youtubeiResult?.success) {
       return youtubeiResult.text;
     }
+    const normalizedReason = youtubeiResult?.reason === "transcript_params_missing" ? "fetch_blocked" : youtubeiResult?.reason;
     throw createTranscriptUnavailableError("youtubei_transcript_failure", {
       videoId,
       status,
-      reason: youtubeiResult?.reason,
+      reason: normalizedReason,
       httpStatus: youtubeiResult?.status,
       responseHeaders: youtubeiResult?.headers,
       jsonErrorCode: youtubeiResult?.jsonErrorCode,
@@ -1322,20 +1574,46 @@ const fetchYouTubeTranscript = async (videoId, language) => {
     videoId,
   });
 
-  if (trackResult.success) {
+  const retryWatch = () =>
+    (async () => {
+      const refreshedConsent = await fetchYouTubeConsentCookieHeader(cookieJar);
+      if (refreshedConsent) {
+        consentCookieHeader = refreshedConsent;
+      }
+      return fetchWatchPageData({
+        videoId,
+        language: "en",
+        hl: "en",
+        userAgent: YOUTUBE_USER_AGENT,
+        cookie: consentCookieHeader,
+        cookieJar,
+      });
+    })();
+
+  const hardenedTrackResult = !enableCaptionRetries || trackResult.success
+    ? trackResult
+    : await fetchCaptionTextWithRetry({
+        track: selectedTrack,
+        videoId,
+        cookieJar,
+        consentCookieHeader,
+        retryWatch,
+      });
+
+  if (hardenedTrackResult.success) {
     logCaptionFetchDebug({
       videoId,
       captionsFound: captionsExists,
       selectedTrackLanguage,
       selectedTrackName,
-      finalUrl: trackResult.attempt?.finalUrl || trackResult.attempt?.url,
-      responseContentType: trackResult.attempt?.headers?.contentType,
+      finalUrl: hardenedTrackResult.attempt?.finalUrl || hardenedTrackResult.attempt?.url,
+      responseContentType: hardenedTrackResult.attempt?.headers?.contentType,
       youtubeiAttempted: false,
     });
-    return trackResult.text;
+    return hardenedTrackResult.text;
   }
 
-  const lastAttempt = trackResult.lastAttempt || trackResult.attempt;
+  const lastAttempt = hardenedTrackResult.lastAttempt || hardenedTrackResult.attempt;
   logCaptionFetchDebug({
     videoId,
     captionsFound: captionsExists,
@@ -1348,11 +1626,35 @@ const fetchYouTubeTranscript = async (videoId, language) => {
 
   const blockedReason =
     (lastAttempt && isBlockedCaptionReason(lastAttempt.reason) && lastAttempt.reason) ||
-    (trackResult.fatal && trackResult.reason === "fetch_blocked" && "fetch_blocked") ||
+    (hardenedTrackResult.fatal && hardenedTrackResult.reason === "fetch_blocked" && "fetch_blocked") ||
     null;
 
   if (blockedReason) {
     const youtubeiResult = await runYoutubei();
+    if (youtubeiResult?.reason === "transcript_params_missing") {
+      const redactedTracks = Array.isArray(resolvedTracks)
+        ? resolvedTracks.slice(0, 3).map((track) => ({
+            languageCode: track?.languageCode || null,
+            kind: track?.kind || track?.trackKind || null,
+            vssId: track?.vssId || null,
+            name: track?.name?.simpleText || null,
+            hasBaseUrl: Boolean(track?.baseUrl),
+            baseUrlHost: (() => {
+              try {
+                return track?.baseUrl ? new URL(track.baseUrl).hostname : null;
+              } catch {
+                return null;
+              }
+            })(),
+            baseUrlHasSignature: typeof track?.baseUrl === "string" && /[?&](sig|signature|sparams|lsig)=/i.test(track.baseUrl),
+          }))
+        : null;
+      debugLog("[youtube-transcript] transcript params missing", {
+        videoId,
+        captionTrackCount: Array.isArray(resolvedTracks) ? resolvedTracks.length : null,
+        captionTracks: redactedTracks,
+      });
+    }
     logCaptionFetchDebug({
       videoId,
       captionsFound: captionsExists,
@@ -1470,6 +1772,44 @@ const buildDocumentResponse = ({ id, text, source, filename, mime, url }) => {
   return payload;
 };
 
+router.post("/text", async (req, res, next) => {
+  try {
+    const { text, source, videoId, url, title } = req.body || {};
+    const cleaned = sanitizeText(text);
+    if (!cleaned) {
+      throw new AppError("Text is required.", 400, "VALIDATION_ERROR");
+    }
+
+    const normalizedSource = source ? String(source).toLowerCase().trim() : "text";
+    const safeTitle =
+      (title && String(title).trim()) ||
+      (normalizedSource === "youtube" && videoId ? `YouTube transcript ${videoId}` : "Pasted text");
+
+    const processedText =
+      cleaned.length > MAX_TRANSCRIPT_LENGTH ? cleaned.slice(0, MAX_TRANSCRIPT_LENGTH) : cleaned;
+
+    const id = randomUUID();
+    persistDocument({
+      id,
+      title: safeTitle,
+      sourceType: normalizedSource,
+      sourceRef: url || videoId || "manual",
+      text: processedText,
+    });
+
+    res.json(
+      buildDocumentResponse({
+        id,
+        text: processedText,
+        source: normalizedSource,
+        url: url || null,
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/upload", upload.single("file"), async (req, res, next) => {
   try {
     const file = req.file;
@@ -1585,6 +1925,31 @@ router.post("/youtube", async (req, res, next) => {
       text = await fetchYouTubeTranscript(videoId, language);
     } catch (error) {
       if (error instanceof AppError) {
+        const nonFatalBlocked =
+          process.env.NODE_ENV !== "test" &&
+          ["YOUTUBE_TRANSCRIPT_BLOCKED", "TRANSCRIPT_UNAVAILABLE"].includes(error.code);
+
+        const blockedReason = error.details?.reason || error.code;
+        const nonFatalNetworkBlocked =
+          process.env.NODE_ENV !== "test" &&
+          blockedReason &&
+          ["fetch_blocked", "unexpected_html", "consent_required"].includes(String(blockedReason));
+
+        if (nonFatalBlocked || nonFatalNetworkBlocked) {
+          return res.json({
+            source: "youtube",
+            url: parsed.href,
+            videoId,
+            text: null,
+            action: "PASTE_TRANSCRIPT",
+            watchUrl: `${YOUTUBE_REFERER_PREFIX}${videoId}`,
+            message:
+              "YouTube blocked automatic transcript fetching. Please copy the transcript in your browser and paste it here.",
+            reason: blockedReason,
+            experimental: true,
+          });
+        }
+
         throw error;
       }
       throw new AppError(

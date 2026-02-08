@@ -42,6 +42,80 @@
           <p>AI Summary & Exam Maker</p>
         </div>
       </div>
+
+      <nav class="header-nav-pill" aria-label="Workspace navigation">
+        <button type="button" class="nav-link" data-nav-target="summary">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M8 4h7l3 3v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M15 4v3a1 1 0 0 0 1 1h3"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M9 12h6M9 16h6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="nav-label">Summary</span>
+        </button>
+        <button type="button" class="nav-link" data-nav-target="exam">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M3 7l9-4 9 4-9 4-9-4Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M7 10v5c0 2 3 4 5 4s5-2 5-4v-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M21 7v6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="nav-label">Exam</span>
+        </button>
+        <button type="button" class="nav-link" data-nav-target="images">
+          <svg
+            class="nav-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          <span class="nav-label">Visuals</span>
+        </button>
+      </nav>
+
       <div class="header-meta">
         <span id="apiStatusIndicator" class="status-chip">Checking API...</span>
         <div class="breadcrumbs" id="viewBreadcrumb">Summary Maker</div>
@@ -50,14 +124,109 @@
 
     <div class="shell-body">
       <aside class="sidebar" aria-label="Primary navigation">
-        <span class="badge">Workflows</span>
         <nav>
-          <button type="button" class="nav-link active" data-nav-target="summary">Summary Maker</button>
-          <button type="button" class="nav-link" data-nav-target="exam">Exam Maker</button>
+          <button type="button" class="nav-link nav-link--mobile" data-nav-target="summary">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M8 4h7l3 3v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M15 4v3a1 1 0 0 0 1 1h3"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M9 12h6M9 16h6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span class="nav-label">Summary</span>
+          </button>
+          <button type="button" class="nav-link nav-link--mobile" data-nav-target="exam">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M3 7l9-4 9 4-9 4-9-4Z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M7 10v5c0 2 3 4 5 4s5-2 5-4v-5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+          <path
+            d="M21 7v6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span class="nav-label">Exam</span>
+          </button>
+          <button type="button" class="nav-link nav-link--rail" data-nav-target="history">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M12 8v5l3 2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M21 12a9 9 0 1 1-3.2-6.8"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+          <path
+            d="M21 4v5h-5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="nav-label">History</span>
+          </button>
+          <button type="button" class="nav-link nav-link--mobile" data-nav-target="images">
+        <svg
+          class="nav-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+        <span class="nav-label">Visuals</span>
+          </button>
         </nav>
         <div class="sidebar-footer">
-          <a href="about.html">About</a>
-          <a href="docs" target="_blank" rel="noreferrer">API Docs</a>
+          <a href="docs" target="_blank" rel="noreferrer">Help / Docs</a>
+          <a href="#" aria-disabled="true">Settings</a>
           <a href="debug.html" class="debug-link is-hidden" data-debug-link>Debug</a>
         </div>
       </aside>
@@ -66,254 +235,229 @@
         <section class="page-view summary-view active" data-view="summary">
           <div class="page-heading">
             <div>
-              <p class="breadcrumbs">Workspace / Summary Maker</p>
-              <h2>Summary Maker</h2>
-              <p class="helper-text">Transform long notes into concise, structured summaries.</p>
+              <p class="breadcrumbs">Summary</p>
+              <h2>Summary</h2>
+              <p class="helper-text">Turn any study material into a clean, exam-ready summary.</p>
             </div>
-            <div class="chip">AI-first</div>
           </div>
-          <div class="summary-layout">
-            <section class="card summary-form-card">
-              <form id="summaryForm" class="summary-form" novalidate>
-                <div class="summary-meta">
-                  <span id="summaryCounter">0 words - 0 chars</span>
-                  <span id="summaryStatus" class="status-chip online">Ready</span>
+
+          <div class="flow-layout">
+            <section class="flow-steps" aria-label="Summary steps">
+              <article class="card step-card step-card--active" data-step="1">
+                <div class="step-number">Step 1</div>
+                <h3>Add study material</h3>
+                <div class="tabs" data-tabs="summary-input">
+                  <div class="tabs-list" role="tablist" aria-label="Study material input">
+                    <button type="button" class="tab active" role="tab" aria-selected="true" data-tab="paste">Paste text</button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" data-tab="pdf">Upload PDF</button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" data-tab="url">Website URL</button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" data-tab="youtube">YouTube transcript</button>
+                  </div>
+
+                  <div class="tabs-panels">
+                    <div class="tab-panel active" role="tabpanel" data-panel="paste">
+                      <div class="summary-meta">
+                        <span id="summaryCounter">0 words - 0 chars</span>
+                        <span id="summaryStatus" class="status-chip online">Ready</span>
+                      </div>
+                      <div class="form-field">
+                        <label for="summaryText">Study text</label>
+                        <textarea
+                          id="summaryText"
+                          name="summaryText"
+                          placeholder="Paste notes, slides, or an article..."
+                          aria-describedby="summaryHint"
+                        ></textarea>
+                        <p class="helper-text" id="summaryHint">Tip: headings + bullet points work great.</p>
+                      </div>
+                      <div class="inline-actions">
+                        <button type="button" class="btn secondary" data-action="paste">Paste</button>
+                        <button type="button" class="btn ghost" data-action="clear">Clear</button>
+                      </div>
+                    </div>
+
+                    <div class="tab-panel" role="tabpanel" data-panel="pdf">
+                      <div class="helper-block">
+                        <p class="helper-text">Upload a PDF and we’ll extract the text for you.</p>
+                        <button type="button" class="btn secondary" id="pdfUploadBtn">Upload PDF</button>
+                      </div>
+                    </div>
+
+                    <div class="tab-panel" role="tabpanel" data-panel="url">
+                      <div class="form-field">
+                        <label for="toolsUrlInput">Website URL</label>
+                        <div class="tool-input-row">
+                          <input id="toolsUrlInput" type="url" placeholder="https://example.com/article" />
+                          <button type="button" class="btn secondary" id="toolsUrlFetch">Fetch</button>
+                        </div>
+                        <p class="helper-text">Best results on articles and docs (not paywalled pages).</p>
+                      </div>
+                    </div>
+
+                    <div class="tab-panel" role="tabpanel" data-panel="youtube">
+                      <div class="form-field">
+                        <label for="toolsYouTubeInput">YouTube link</label>
+                        <div class="tool-input-row">
+                          <input id="toolsYouTubeInput" type="url" placeholder="https://www.youtube.com/watch?v=" />
+                          <button type="button" class="btn secondary" id="toolsYouTubeFetch">Get transcript</button>
+                        </div>
+                      </div>
+                      <div class="youtube-paste" id="youtubePastePanel" hidden>
+                        <div class="alert info" id="youtubePasteMessage">
+                          YouTube blocked automatic transcript fetching. Please copy the transcript and paste it here.
+                        </div>
+                        <div class="youtube-actions">
+                          <button type="button" class="btn ghost" id="youtubeOpenVideo">Open video</button>
+                          <button type="button" class="btn ghost" id="youtubeOpenInstructions">How to copy transcript</button>
+                        </div>
+                        <div class="youtube-instructions" id="youtubeInstructions" hidden>
+                          <ol>
+                            <li>Open the video on YouTube.</li>
+                            <li>Click the three dots (more options) near the title.</li>
+                            <li>Select “Show transcript”.</li>
+                            <li>Copy the transcript text and paste it below.</li>
+                          </ol>
+                        </div>
+                        <textarea id="youtubeTranscriptPaste" rows="8" placeholder="Paste transcript text here"></textarea>
+                        <p class="helper-text" id="youtubePasteHint">Transcript must be at least 200 characters.</p>
+                        <button type="button" class="btn secondary" id="youtubeSubmitTranscript">Use pasted transcript</button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-field">
-                  <label for="summaryText">Study text</label>
-                  <textarea
-                    id="summaryText"
-                    name="summaryText"
-                    placeholder="Paste notes or an article..."
-                    aria-describedby="summaryHint"
-                  ></textarea>
-                  <p class="helper-text" id="summaryHint">We trim extra whitespace but keep your formatting intact.</p>
-                </div>
+              </article>
+
+              <article class="card step-card" data-step="2">
+                <div class="step-number">Step 2</div>
+                <h3>Options</h3>
                 <div class="form-grid">
                   <div class="form-field">
-                    <label for="summaryLength">Length</label>
-                    <select id="summaryLength">
+                    <label for="summaryLengthSlider">Summary length</label>
+                    <input id="summaryLengthSlider" type="range" min="0" max="3" step="1" value="1" />
+                    <div class="slider-labels">
+                      <span>Short</span>
+                      <span id="summaryLengthValue">Medium</span>
+                      <span>Unlimited</span>
+                    </div>
+                    <select id="summaryLength" hidden>
                       <option value="short">Short</option>
                       <option value="medium" selected>Medium</option>
                       <option value="detailed">Detailed</option>
                       <option value="unlimited">Unlimited</option>
                     </select>
-                    <p class="helper-text">Short = 3-4 key points. Unlimited = keep every nuance.</p>
                   </div>
                   <div class="form-field">
-                    <label for="summaryFormat">Format</label>
+                    <label for="summaryFormat">Output format</label>
                     <select id="summaryFormat">
-                      <option value="paragraph">Paragraph</option>
-                      <option value="bullets">Bullet points</option>
+                      <option value="bullets">Bullets</option>
+                      <option value="paragraph" selected>Paragraphs</option>
                     </select>
-                    <p class="helper-text">Paragraph keeps flow; bullets make structure easy to skim.</p>
+                  </div>
+                  <div class="form-field">
+                    <label for="summaryTone">Tone</label>
+                    <select id="summaryTone">
+                      <option value="student" selected>Student</option>
+                      <option value="professional">Professional</option>
+                    </select>
                   </div>
                 </div>
-                <div class="summary-actions">
-                  <button type="button" class="btn primary" data-action="summarize">Generate summary</button>
-                  <button type="button" class="btn secondary" data-action="paste">Paste</button>
-                  <button type="button" class="btn ghost" data-action="clear">Clear</button>
-                </div>
                 <p id="summaryValidation" class="helper-text" role="status" aria-live="polite"></p>
-              </form>
+              </article>
+
+              <article class="card step-card" data-step="3">
+                <div class="step-number">Step 3</div>
+                <h3>Generate</h3>
+                <button type="button" class="btn primary btn-lg" data-action="summarize">Generate summary</button>
+              </article>
+
+              <input type="file" id="pdfUploadInput" accept=".pdf" hidden />
+              <input type="file" id="docxUploadInput" accept=".docx" hidden />
+              <input type="file" id="txtUploadInput" accept=".txt,text/plain" hidden />
+              <input type="file" id="ocrUploadInput" accept="image/*" hidden />
             </section>
-            <section class="card summary-preview" aria-live="polite" id="summaryPreview" role="region">
+
+            <section class="card summary-preview chat-surface" aria-live="polite" id="summaryPreview" role="region">
               <div class="preview-toolbar">
                 <div>
                   <p class="helper-text">Output</p>
                   <p class="status-note" id="previewStatus">Waiting for generation</p>
                 </div>
-                <div>
+                <div class="toolbar-actions">
                   <button type="button" class="btn secondary" data-action="copy">Copy</button>
                   <button type="button" class="btn ghost" data-action="download">Download</button>
+                  <button type="button" class="btn ghost" data-action="save">Save</button>
                 </div>
               </div>
               <div class="preview-content" id="summaryOutput">
-                <p class="placeholder">Start with a summary request to see results here.</p>
+                <p class="placeholder">Your summary will appear here.</p>
               </div>
               <div class="summary-highlights" id="summaryHighlights" hidden></div>
               <div id="summaryError" class="summary-error" hidden></div>
             </section>
           </div>
-          <section class="card tools-workspace" aria-label="Tools workspace">
-            <div class="tools-header">
-              <div>
-                <p class="helper-text">Workspace / Tools</p>
-                <h3>Tools workspace</h3>
-                <p class="helper-text">Run specialized summaries, extractions, imports, and exports in one place.</p>
+        </section>
+
+        <section class="page-view images-view" data-view="images">
+          <div class="page-heading">
+            <div>
+              <p class="breadcrumbs">Workspace / Visuals</p>
+              <h2>Visuals</h2>
+              <p class="helper-text">Generate study-friendly diagrams and visuals (simulation mode).</p>
+            </div>
+            <div class="chip">Simulation</div>
+          </div>
+
+          <div class="flow-layout">
+            <section class="flow-steps" aria-label="Image generator inputs">
+              <article class="card step-card step-card--active" data-step="1">
+                <div class="step-number">Step 1</div>
+                <h3>Describe your visual</h3>
+                <div class="form-field">
+                  <label for="imagePrompt">Prompt</label>
+                  <textarea
+                    id="imagePrompt"
+                    placeholder="Example: A labeled diagram of the water cycle for 9th grade, clean minimalist style"
+                  ></textarea>
+                </div>
+                <div class="form-field">
+                  <label for="imageStyle">Style</label>
+                  <select id="imageStyle">
+                    <option value="academic" selected>Modern Academic</option>
+                    <option value="minimal">Minimal line art</option>
+                    <option value="infographic">Infographic</option>
+                    <option value="sketch">Sketch notebook</option>
+                  </select>
+                </div>
+              </article>
+
+              <article class="card step-card" data-step="2">
+                <div class="step-number">Step 2</div>
+                <h3>Generate</h3>
+                <button type="button" class="btn primary btn-lg" data-action="generate-image">Generate Visual</button>
+                <p class="helper-text" id="imageStatusText">Status: Idle</p>
+              </article>
+            </section>
+
+            <section class="card chat-surface image-canvas" aria-label="Generated image" role="region">
+              <div class="preview-toolbar">
+                <div>
+                  <p class="helper-text">Canvas</p>
+                  <p class="status-note">Your generated visual will appear here.</p>
+                </div>
               </div>
-              <span class="status-chip online">Live tools</span>
-            </div>
-            <div class="tools-grid">
-              <article class="tools-card">
-                <h4>Core Summary Tools</h4>
-                <div class="tool-buttons">
-                  <button type="button" data-tool="summary.short">Short summary</button>
-                  <button type="button" data-tool="summary.detailed">Detailed summary</button>
-                  <button type="button" data-tool="summary.bullets">Bullet summary</button>
-                  <button type="button" data-tool="summary.one_sentence">1-sentence summary</button>
-                  <button type="button" data-tool="summary.tldr">TL;DR</button>
-                  <button type="button" data-tool="summary.key_takeaways">Key takeaways</button>
-                  <button type="button" data-tool="summary.executive">Executive summary</button>
-                  <button type="button" data-tool="summary.sectioned">Chapter / section summary</button>
+              <div class="preview-content" id="imageCanvas">
+                <div class="empty-state">
+                  <svg class="empty-state-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" fill="none" stroke="currentColor" stroke-width="2" />
+                    <polyline points="21 15 16 10 5 21" fill="none" stroke="currentColor" stroke-width="2" />
+                  </svg>
+                  <p class="empty-state-title">No visual yet</p>
+                  <p class="empty-state-subtitle">Write a prompt and generate a visual to preview it here.</p>
                 </div>
-              </article>
-              <article class="tools-card">
-                <h4>Smart Extraction Tools</h4>
-                <div class="tool-buttons">
-                  <button type="button" data-tool="extract.action_items">Action items</button>
-                  <button type="button" data-tool="extract.questions">Questions</button>
-                  <button type="button" data-tool="extract.decisions">Decisions</button>
-                  <button type="button" data-tool="extract.quotes">Important quotes</button>
-                  <button type="button" data-tool="extract.keywords">Keywords</button>
-                  <button type="button" data-tool="extract.people">People / names</button>
-                  <button type="button" data-tool="extract.dates">Dates / deadlines</button>
-                </div>
-              </article>
-              <article class="tools-card control-tools">
-                <h4>Control Tools</h4>
-                <div class="control-grid">
-                  <div class="form-field">
-                    <label for="toolsLengthSlider">Summary length</label>
-                    <input id="toolsLengthSlider" type="range" min="0" max="1" step="0.01" value="0.5" />
-                    <div class="slider-labels">
-                      <span>Short</span>
-                      <span id="toolsLengthValue">50%</span>
-                      <span>Long</span>
-                    </div>
-                  </div>
-                  <div class="form-field">
-                    <label for="toolsToneSelect">Tone</label>
-                    <select id="toolsToneSelect">
-                      <option value="professional" selected>Professional</option>
-                      <option value="casual">Casual</option>
-                      <option value="academic">Academic</option>
-                    </select>
-                  </div>
-                  <div class="form-field">
-                    <label for="toolsLanguageInput">Language</label>
-                    <input id="toolsLanguageInput" type="text" placeholder="en" />
-                  </div>
-                  <div class="form-field">
-                    <label for="toolsFocusSelect">Focus</label>
-                    <select id="toolsFocusSelect">
-                      <option value="student" selected>Student</option>
-                      <option value="manager">Manager</option>
-                      <option value="lawyer">Lawyer</option>
-                      <option value="developer">Developer</option>
-                    </select>
-                  </div>
-                  <div class="form-field">
-                    <label for="toolsSectionedLimit">Section max characters</label>
-                    <input
-                      id="toolsSectionedLimit"
-                      type="number"
-                      min="500"
-                      max="10000"
-                      step="100"
-                      value="3500"
-                    />
-                    <p class="helper-text">Caps each chapter / section summary when using the chapter tool.</p>
-                  </div>
-                </div>
-              </article>
-              <article class="tools-card input-tools">
-                <h4>Input Tools</h4>
-                <div class="tool-buttons">
-                  <button type="button" id="pdfUploadBtn">Upload PDF</button>
-                  <button type="button" id="docxUploadBtn">Upload DOCX</button>
-                  <button type="button" id="txtUploadBtn">Upload TXT</button>
-                  <button type="button" id="ocrUploadBtn">Image → OCR</button>
-                  <button type="button" data-action="paste">Paste text</button>
-                </div>
-                <div class="tool-input-grid">
-                  <div class="form-field">
-                    <label for="toolsUrlInput">Website URL</label>
-                    <div class="tool-input-row">
-                      <input id="toolsUrlInput" type="url" placeholder="https://example.com/article" />
-                      <button type="button" id="toolsUrlFetch">Fetch</button>
-                    </div>
-                  </div>
-                  <div class="form-field">
-                    <label for="toolsYouTubeInput">YouTube link</label>
-                    <div class="tool-input-row">
-                      <input id="toolsYouTubeInput" type="url" placeholder="https://www.youtube.com/watch?v=" />
-                      <button type="button" id="toolsYouTubeFetch">Transcript</button>
-                    </div>
-                  </div>
-                </div>
-                <button type="button" class="btn ghost" id="toolsAudioBtn">Audio → transcript</button>
-              </article>
-              <article class="tools-card output-tools">
-                <h4>Output Tools</h4>
-                <div class="tool-buttons">
-                  <button type="button" data-action="copy">Copy summary</button>
-                  <button type="button" data-export="pdf">Export to PDF</button>
-                  <button type="button" data-export="docx">Export to DOCX</button>
-                  <button type="button" data-export="txt">Export to TXT</button>
-                  <button type="button" data-export="md">Download as Markdown</button>
-                </div>
-                <div class="share-row">
-                  <button type="button" id="toolsShareBtn">Share link</button>
-                  <input id="toolsShareLink" type="text" placeholder="Generate share link" readonly />
-                </div>
-              </article>
-              <article class="tools-card productivity-tools">
-                <h4>Productivity Tools</h4>
-                <div class="productivity-form">
-                  <div class="form-field">
-                    <label for="savedTitleInput">Title</label>
-                    <input id="savedTitleInput" type="text" placeholder="Title for this summary" />
-                  </div>
-                  <div class="form-field">
-                    <label for="savedTagsInput">Tags</label>
-                    <input id="savedTagsInput" type="text" placeholder="tag1, tag2" />
-                  </div>
-                  <div class="form-field">
-                    <label for="savedFolderInput">Folder</label>
-                    <input id="savedFolderInput" type="text" placeholder="Folder" />
-                  </div>
-                  <button type="button" class="btn secondary" id="savedActionBtn">Save summary</button>
-                </div>
-                <div class="history-controls">
-                  <div class="form-field">
-                    <label for="savedSearchInput">Search saved summaries</label>
-                    <div class="tool-input-row">
-                      <input id="savedSearchInput" type="search" placeholder="Search by title or tag" />
-                      <button type="button" id="savedSearchBtn">Search</button>
-                    </div>
-                  </div>
-                </div>
-                <ul id="savedList" class="history-list"></ul>
-                <div class="compare-section">
-                  <h5>Compare two summaries</h5>
-                  <div class="compare-grid">
-                    <select id="compareLeft"><option value="">Choose first</option></select>
-                    <select id="compareRight"><option value="">Choose second</option></select>
-                  </div>
-                  <button type="button" id="compareBtn" class="btn ghost">Compare</button>
-                  <div id="comparePanel" class="compare-panel"></div>
-                </div>
-              </article>
-              <article class="tools-card extra-tools">
-                <h4>Extra “Wow” Tools</h4>
-                <div class="tool-buttons">
-                  <button type="button" data-tool="wow.highlight">Highlight sentences</button>
-                  <button type="button" data-tool="wow.fact_flags">Fact-check mode</button>
-                  <button type="button" data-tool="wow.mindmap">Mind-map outline</button>
-                  <button type="button" data-tool="wow.next_steps">Summary + next steps</button>
-                  <button type="button" data-tool="wow.email_reply">Summary + email reply</button>
-                  <button type="button" data-tool="rewrite" data-rewrite-mode="shorter">Rewrite (shorter)</button>
-                  <button type="button" data-tool="rewrite" data-rewrite-mode="longer">Rewrite (longer)</button>
-                  <button type="button" data-tool="rewrite" data-rewrite-mode="simpler">Rewrite (simpler)</button>
-                </div>
-              </article>
-            </div>
-            <input type="file" id="pdfUploadInput" accept=".pdf" hidden />
-            <input type="file" id="docxUploadInput" accept=".docx" hidden />
-            <input type="file" id="txtUploadInput" accept=".txt,text/plain" hidden />
-            <input type="file" id="ocrUploadInput" accept="image/*" hidden />
-          </section>
+              </div>
+            </section>
+          </div>
         </section>
 
         <section class="page-view exam-view" data-view="exam">
@@ -325,8 +469,9 @@
             </div>
             <div class="chip">Grounded</div>
           </div>
-          <div class="exam-flow">
-            <article class="step-card">
+          <div class="flow-layout">
+            <section class="flow-steps" aria-label="Exam steps">
+            <article class="card step-card step-card--active" data-step="1">
               <div class="step-number">Step 1</div>
               <h3>Study material</h3>
               <div class="form-field">
@@ -339,10 +484,10 @@
               </div>
               <p class="helper-text">Longer inputs may take slightly longer but stay in context.</p>
             </article>
-            <article class="step-card">
+            <article class="card step-card" data-step="2">
               <div class="step-number">Step 2</div>
               <h3>Configuration</h3>
-              <div class="form-grid">
+              <div class="exam-settings-grid">
                 <div class="form-field">
                   <label for="difficultySelect">Difficulty</label>
                   <select id="difficultySelect">
@@ -355,45 +500,55 @@
                   <label for="questionCount">Question count (5-30)</label>
                   <input id="questionCount" type="number" min="5" max="30" value="10" />
                 </div>
-                <div class="form-field">
+                <div class="form-field exam-strict-toggle">
                   <label class="inline-secondary" for="strictTypesToggle">Strict type counts</label>
                   <input id="strictTypesToggle" type="checkbox" checked />
                 </div>
               </div>
-              <div class="type-grid">
-                <div class="form-field">
-                  <label for="mcqCount">MCQ</label>
-                  <input id="mcqCount" type="number" min="0" value="4" />
+              <div class="exam-type-chips" aria-label="Question types">
+                <div class="type-chip">
+                  <span class="chip-label">MCQ</span>
+                  <input id="mcqCount" type="number" min="0" value="4" aria-label="MCQ count" />
                 </div>
-                <div class="form-field">
-                  <label for="tfCount">True / False</label>
-                  <input id="tfCount" type="number" min="0" value="2" />
+                <div class="type-chip">
+                  <span class="chip-label">True/False</span>
+                  <input id="tfCount" type="number" min="0" value="2" aria-label="True/False count" />
                 </div>
-                <div class="form-field">
-                  <label for="shortCount">Short answer</label>
-                  <input id="shortCount" type="number" min="0" value="2" />
+                <div class="type-chip">
+                  <span class="chip-label">Short</span>
+                  <input id="shortCount" type="number" min="0" value="2" aria-label="Short answer count" />
                 </div>
-                <div class="form-field">
-                  <label for="fillCount">Fill in blank</label>
-                  <input id="fillCount" type="number" min="0" value="2" />
+                <div class="type-chip">
+                  <span class="chip-label">Fill blank</span>
+                  <input id="fillCount" type="number" min="0" value="2" aria-label="Fill blank count" />
                 </div>
               </div>
               <p class="helper-text" id="typeStatus">Types total: 10 / 10</p>
             </article>
-            <article class="step-card">
+            <article class="card step-card" data-step="3">
               <div class="step-number">Step 3</div>
-              <h3>Generate & export</h3>
-              <div class="summary-actions">
-                <button type="button" class="btn primary" data-action="generate-exam">Generate exam</button>
+              <h3>Generate</h3>
+              <button type="button" class="btn primary btn-lg" data-action="generate-exam">Generate exam</button>
+              <div class="inline-actions exam-secondary-actions">
                 <button type="button" class="btn ghost" data-action="clear-exam">Clear</button>
-              </div>
-              <div class="summary-actions">
                 <button type="button" class="btn secondary" data-action="submit-exam">Submit answers</button>
                 <button type="button" class="btn ghost" data-action="export-json">Export JSON</button>
                 <button type="button" class="btn ghost" data-action="export-html">Export HTML</button>
               </div>
               <p class="helper-text" id="examStatusText">Status: Idle</p>
             </article>
+            </section>
+            <section class="card chat-surface exam-sticky-panel" aria-label="Exam output" role="region">
+              <div class="preview-toolbar">
+                <div>
+                  <p class="helper-text">Exam workspace</p>
+                  <p class="status-note">Generate an exam to start</p>
+                </div>
+              </div>
+              <div class="preview-content">
+                <p class="placeholder">Your exam, attempts, and feedback appear below.</p>
+              </div>
+            </section>
           </div>
           <div class="exam-columns">
             <div class="exam-panel">
@@ -454,6 +609,25 @@
               </section>
             </div>
           </div>
+        </section>
+
+        <section class="page-view history-view" data-view="history">
+          <div class="page-heading">
+            <div>
+              <p class="breadcrumbs">History</p>
+              <h2>History</h2>
+              <p class="helper-text">Saved summaries and generated exams.</p>
+            </div>
+          </div>
+          <div class="library-bar" role="region" aria-label="Learning library filters">
+            <div class="library-filters" role="tablist" aria-label="Library filter">
+              <button type="button" class="filter-pill active" data-library-filter="all" role="tab" aria-selected="true">All</button>
+              <button type="button" class="filter-pill" data-library-filter="summary" role="tab" aria-selected="false">Summaries</button>
+              <button type="button" class="filter-pill" data-library-filter="exam" role="tab" aria-selected="false">Exams</button>
+              <button type="button" class="filter-pill" data-library-filter="visual" role="tab" aria-selected="false">Visuals</button>
+            </div>
+          </div>
+          <div id="learningLibraryGrid" class="history-grid" aria-live="polite"></div>
         </section>
       </main>
     </div>

@@ -4,6 +4,8 @@ import { showToast } from "./ui.js";
 const summaryView = document.querySelector(".summary-view");
 const summaryText = document.getElementById("summaryText");
 const summaryLength = document.getElementById("summaryLength");
+const summaryLengthSlider = document.getElementById("summaryLengthSlider");
+const summaryLengthValue = document.getElementById("summaryLengthValue");
 const summaryFormat = document.getElementById("summaryFormat");
 const summaryCounter = document.getElementById("summaryCounter");
 const summaryStatus = document.getElementById("summaryStatus");
@@ -16,6 +18,26 @@ const previewStatus = document.getElementById("previewStatus");
 
 let summaryPayload = null;
 let highlightSourceText = "";
+
+const SAVED_SUMMARIES_STORAGE_KEY = "saved-summaries";
+
+const getSavedSummaries = () => {
+  try {
+    const raw = window.localStorage.getItem(SAVED_SUMMARIES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveSummaries = (items) => {
+  try {
+    window.localStorage.setItem(SAVED_SUMMARIES_STORAGE_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.error(error);
+  }
+};
 
 const getWordCount = (text = "") => {
   if (!text.trim()) {
@@ -55,9 +77,10 @@ const setPreviewLoading = () => {
   if (summaryOutput) {
     summaryOutput.innerHTML = `
       <div class="loading-placeholder">
-        <span></span>
-        <span></span>
-        <span></span>
+        <div class="skeleton" style="height: 16px;"></div>
+        <div class="skeleton" style="height: 16px;"></div>
+        <div class="skeleton" style="height: 16px; width: 70%;"></div>
+        <div class="skeleton" style="height: 16px; width: 85%;"></div>
       </div>
     `;
   }
@@ -268,6 +291,38 @@ const getPrintableSummary = (payload = summaryPayload) => {
   return String(payload);
 };
 
+const lengthLabels = ["Short", "Medium", "Detailed", "Unlimited"];
+const lengthValues = ["short", "medium", "detailed", "unlimited"];
+
+const syncLengthControls = () => {
+  if (!summaryLengthSlider || !summaryLength) return;
+  const index = Math.max(0, Math.min(lengthValues.length - 1, Number(summaryLengthSlider.value || 0)));
+  const selectedValue = lengthValues[index];
+  summaryLength.value = selectedValue;
+  if (summaryLengthValue) {
+    summaryLengthValue.textContent = lengthLabels[index] || "Medium";
+  }
+};
+
+const handleSave = async () => {
+  const content = getPrintableSummary();
+  if (!content) {
+    showToast("Nothing to save", "error");
+    return;
+  }
+
+  const now = new Date();
+  const createdAt = now.toISOString();
+  const id = `${now.getTime()}`;
+  const title = `Summary ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+  const preview = content.replace(/\s+/g, " ").trim().slice(0, 160);
+
+  const existing = getSavedSummaries();
+  const next = [{ id, title, createdAt, preview, content }, ...existing].slice(0, 50);
+  saveSummaries(next);
+  showToast("Saved to history", "success");
+};
+
 const handleError = (message) => {
   renderHighlights([]);
   if (summaryError) {
@@ -406,6 +461,9 @@ const handleAction = async (action) => {
     case "download":
       handleDownload();
       break;
+    case "save":
+      await handleSave();
+      break;
     default:
       break;
   }
@@ -423,6 +481,8 @@ const initSummaryFlow = () => {
   setStatus("Ready", "online");
   renderPlaceholder();
   summaryText?.addEventListener("input", updateCounter);
+  summaryLengthSlider?.addEventListener("input", syncLengthControls);
+  syncLengthControls();
   bindSummaryActions();
 };
 

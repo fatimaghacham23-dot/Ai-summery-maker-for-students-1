@@ -1,6 +1,33 @@
 const { lookup } = require("node:dns").promises;
 const net = require("node:net");
 const { AppError } = require("../middleware/errorHandler");
+const { ProxyAgent } = require("undici");
+
+let cachedYouTubeProxyUrl = null;
+let cachedYouTubeProxyAgent = null;
+const loggedProxyHosts = new Set();
+
+const debugLog = (...args) => {
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.debug(...args);
+};
+
+const redactProxyUrl = (value) => {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = new URL(value);
+    const auth = parsed.username || parsed.password ? "<redacted>@" : "";
+    const port = parsed.port ? `:${parsed.port}` : "";
+    return `${parsed.protocol}//${auth}${parsed.hostname}${port}`;
+  } catch {
+    return "<invalid_proxy_url>";
+  }
+};
 
 const PRIVATE_PATTERNS = [
   /^localhost$/,
@@ -79,9 +106,51 @@ const fetchWithTimeout = async (url, options = {}) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
   try {
+    const proxyUrl = process.env.YOUTUBE_PROXY_URL;
+    const shouldProxy = (() => {
+      if (!proxyUrl) {
+        return false;
+      }
+      try {
+        const parsed = new URL(url);
+        const host = String(parsed.hostname || "").toLowerCase();
+        return host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtu.be";
+      } catch {
+        return false;
+      }
+    })();
+
+    const dispatcher = (() => {
+      if (!shouldProxy) {
+        return undefined;
+      }
+      if (cachedYouTubeProxyAgent && cachedYouTubeProxyUrl === proxyUrl) {
+        return cachedYouTubeProxyAgent;
+      }
+      cachedYouTubeProxyUrl = proxyUrl;
+      cachedYouTubeProxyAgent = new ProxyAgent(proxyUrl);
+      return cachedYouTubeProxyAgent;
+    })();
+
+    if (shouldProxy) {
+      try {
+        const targetHost = new URL(url).hostname;
+        if (!loggedProxyHosts.has(targetHost)) {
+          loggedProxyHosts.add(targetHost);
+          debugLog("[network] youtube proxy active", {
+            proxy: redactProxyUrl(proxyUrl),
+            targetHost,
+          });
+        }
+      } catch {
+        // ignore debug failures
+      }
+    }
+
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
     });
     return response;
   } finally {

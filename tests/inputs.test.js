@@ -11,12 +11,12 @@ jest.mock("node:dns", () => {
     },
   };
 });
-const extractInnertubeConfigFromHtml = jest.fn();
-jest.mock("../lib/youtubeInnertube", () => {
-  const actual = jest.requireActual("../lib/youtubeInnertube");
+const mockExtractInnertubeConfigFromHtml = jest.fn();
+jest.mock("../src/lib/youtubeInnertube", () => {
+  const actual = jest.requireActual("../src/lib/youtubeInnertube");
   return {
     ...actual,
-    extractInnertubeConfigFromHtml,
+    extractInnertubeConfigFromHtml: mockExtractInnertubeConfigFromHtml,
   };
 });
 const buildFetchHeaders = (initial = {}) => {
@@ -59,8 +59,8 @@ const { db } = require("../src/db");
 describe("Inputs router", () => {
   beforeEach(() => {
     db.exec("DELETE FROM documents;");
-    extractInnertubeConfigFromHtml.mockReset();
-    extractInnertubeConfigFromHtml.mockImplementation(() => ({
+    mockExtractInnertubeConfigFromHtml.mockReset();
+    mockExtractInnertubeConfigFromHtml.mockImplementation(() => ({
       ok: true,
       debug: {
         containsYtcfg: true,
@@ -580,8 +580,8 @@ Next sentence`;
         visitorData: "RETRY_VISITOR",
       },
     };
-    extractInnertubeConfigFromHtml.mockImplementationOnce(() => missingConfig);
-    extractInnertubeConfigFromHtml.mockImplementation(() => availableConfig);
+    mockExtractInnertubeConfigFromHtml.mockImplementationOnce(() => missingConfig);
+    mockExtractInnertubeConfigFromHtml.mockImplementation(() => availableConfig);
 
     const originalFetch = global.fetch;
     try {
