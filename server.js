@@ -1,4 +1,10 @@
 require("dotenv").config();
+
+["HUGGINGFACE_API_KEY", "HF_ROUTER_PROVIDER", "HF_ROUTER_BASE_URL", "HF_IMAGE_MODEL"].forEach((key) => {
+  if (!process.env[key]) {
+    throw new Error(`Missing ${key}`);
+  }
+});
 console.log("DEBUG_TOKEN =", JSON.stringify(process.env.DEBUG_TOKEN));
 console.log("ENABLE_DEBUG_ROUTES =", JSON.stringify(process.env.ENABLE_DEBUG_ROUTES));
 console.log("NODE_ENV =", JSON.stringify(process.env.NODE_ENV));
@@ -8,6 +14,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const swaggerUi = require("swagger-ui-express");
 const path = require("path");
+const imageService = require("./server/services/imageService");
 
 const {
   errorHandler,
@@ -22,6 +29,7 @@ const toolsRouter = require("./src/routes/tools");
 const persistenceRouter = require("./src/routes/persistence");
 const shareViewRouter = require("./src/routes/shareView");
 const inputsRouter = require("./src/routes/inputs");
+const imagesRouter = require("./src/routes/images");
 const { debugRouter } = require("./src/debug/debugRoutes");
 const { debugSessionMiddleware } = require("./src/debug/debugSessionMiddleware");
 const { apiDebugRecorder } = require("./src/debug/apiDebugRecorder");
@@ -96,6 +104,7 @@ app.get("/", (req, res) => {
 app.use("/health", healthRouter);
 app.use("/api", apiDebugRecorder);
 app.use("/api", summarizeRouter);
+app.use("/api", imagesRouter);
 app.use("/api", examsRouter);
 app.use("/api", knowledgeRouter);
 app.use("/api", persistenceRouter);
@@ -130,7 +139,15 @@ app.use(errorHandler);
  */
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+const startServer = async () => {
+  await imageService.ensureRouterModelAvailable();
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+};
+
+startServer().catch((error) => {
+  console.error("Failed to validate image service configuration:", error);
+  process.exit(1);
 });
 

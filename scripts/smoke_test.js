@@ -1,8 +1,16 @@
+const fs = require("fs");
+const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
+const { PassThrough } = require("stream");
+const FormData = require("form-data");
+const { fetch } = require("undici");
+const { buildSmokePayload } = require("./smokePayload");
 
 const PORT = Number(process.env.SMOKE_PORT || 3101);
 const BASE_URL = `http://localhost:${PORT}`;
+const SAMPLE_UPLOAD_PATH = path.resolve(__dirname, "../tests/fixtures/sample_upload.txt");
+const SAMPLE_UPLOAD_SNIPPET = "Sample upload fixture text";
 
 const requestJson = (method, path, payload = null) =>
   new Promise((resolve, reject) => {
@@ -110,6 +118,49 @@ const validatePrompts = (questions) => {
   return failures;
 };
 
+const assertUploadContract = async () => {
+  const uploadUrl = `${BASE_URL}/api/inputs/upload`;
+  const form = new FormData();
+  form.append("file", fs.createReadStream(SAMPLE_UPLOAD_PATH));
+
+  const headers = form.getHeaders();
+  const passThrough = new PassThrough();
+  const responsePromise = fetch(uploadUrl, {
+    method: "POST",
+    body: passThrough,
+    headers,
+    duplex: "half",
+  });
+  form.once("error", (error) => passThrough.destroy(error));
+  form.pipe(passThrough);
+  const response = await responsePromise;
+
+  const rawBody = await response.text();
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Upload contract failed with status ${response.status}: ${rawBody || "no body"}`);
+  }
+
+  let payload = {};
+  try {
+    payload = rawBody ? JSON.parse(rawBody) : {};
+  } catch (error) {
+    throw new Error(`Upload contract response was not valid JSON: ${rawBody}`);
+  }
+  const { filename, documentId, text, source } = payload;
+  if (source !== "upload") {
+    throw new Error(`Upload contract responded with unexpected source ${source}`);
+  }
+  if (!filename) {
+    throw new Error("Upload contract response is missing filename");
+  }
+  if (!documentId) {
+    throw new Error("Upload contract response is missing documentId");
+  }
+  if (!text || !text.includes(SAMPLE_UPLOAD_SNIPPET)) {
+    throw new Error("Upload contract response text does not include expected fixture content");
+  }
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
 
 const isExamGenerationFailed422 = (response) => {
@@ -137,33 +188,7 @@ const run = async () => {
       throw new Error("Server failed to start for smoke test.");
     }
 
-    const notes = `
-MATHEMATICS
-Linear equations use variables and constants to represent relationships. The slope indicates rate of change.
-
-SCIENCE
-Photosynthesis converts light energy into chemical energy in plants. Chlorophyll absorbs light, and glucose stores energy.
-
-ENGLISH
-Metaphor compares two unlike things without using like or as. A strong thesis improves clarity in writing.
-
-GEOGRAPHY
-Climate describes long-term patterns, while weather describes day-to-day conditions. Erosion moves sediment.
-
-HISTORY
-Primary sources include letters and diaries written at the time. Secondary sources interpret events later.
-
-COMPUTER SCIENCE
-An algorithm is a step-by-step procedure for solving a problem. Input, process, output describe data flow.
-    `.trim();
-
-    const generatePayload = {
-      text: notes,
-      questionCount: 8,
-      difficulty: "medium",
-      strictTypes: true,
-      types: { mcq: 4, trueFalse: 2, shortAnswer: 1, fillBlank: 1 },
-    };
+    const generatePayload = buildSmokePayload();
 
     let examResponse = null;
     const maxAttempts = Number(process.env.SMOKE_EXAM_RETRIES || 3);
@@ -208,6 +233,8 @@ An algorithm is a step-by-step procedure for solving a problem. Input, process, 
     if (promptFailures.length) {
       throw new Error(`Prompt sanity failures:\n${promptFailures.join("\n")}`);
     }
+
+    await assertUploadContract();
 
     console.log("Smoke test passed.");
   } finally {

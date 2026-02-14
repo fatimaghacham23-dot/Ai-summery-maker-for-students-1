@@ -3,6 +3,7 @@ import { initSummaryInputs } from "./toolsWorkspace.js";
 import { initExamFlow } from "./exams.js";
 import { initImagesFlow } from "./images.js";
 import { requestJson } from "./api.js";
+import { showToast } from "./ui.js";
 
 const navLinks = Array.from(document.querySelectorAll(".nav-link[data-nav-target]"));
 const pageViews = Array.from(document.querySelectorAll(".page-view"));
@@ -161,14 +162,20 @@ const normalizeSummaryItem = (item) => {
 
 const normalizeVisualItem = (item) => {
   const createdAt = item.createdAt || null;
+  const prompt = item.usedPrompt || item.prompt || "";
+  const imageUrl =
+    item.url ||
+    (item.imageBase64 ? `data:${item.mimeType || "image/png"};base64,${item.imageBase64}` : "");
   return {
     id: String(item.id || ""),
     type: "visual",
     title: item.style ? `${item.style} visual` : "Saved visual",
     createdAt,
-    prompt: item.prompt || "",
+    prompt,
     style: item.style || "",
-    url: item.url || "",
+    size: item.size || "",
+    quality: item.quality || "",
+    url: imageUrl,
   };
 };
 
@@ -204,7 +211,80 @@ const downloadImage = (url) => {
   link.remove();
 };
 
+const renderVisualLibraryCard = (item) => {
+  const promptText = escapeHtml(item.prompt || "Saved visual");
+  const styleLabel = escapeHtml(item.style || "prompt-only");
+  const sizeLabel = escapeHtml(item.size || "1024x1024");
+  const qualityLabel = escapeHtml(item.quality || "standard");
+  const imageSrc = escapeHtml(item.url || "");
+  const hasImage = Boolean(item.url);
+  const dateLabel = safeDate(item.createdAt)?.toLocaleString() || "";
+  const placeholderImage = `<div class="visual-image visual-image--empty">No image</div>`;
+  return `
+    <article class="card library-card visual-card" data-library-id="${escapeHtml(item.id)}" data-library-type="visual">
+      <div class="visual-image-wrap">
+        ${hasImage ? `<img class="visual-image" src="${imageSrc}" alt="Saved visual" loading="lazy" />` : placeholderImage}
+      </div>
+      <div class="visual-meta">
+        <div class="visual-prompt">${promptText}</div>
+        <div class="visual-tags">
+          <span class="visual-tag">Style: ${styleLabel}</span>
+          <span class="visual-tag">Size: ${sizeLabel}</span>
+          <span class="visual-tag">Quality: ${qualityLabel}</span>
+        </div>
+        <div class="visual-actions">
+          <button type="button" class="btn secondary" data-visual-action="save" data-library-id="${escapeHtml(item.id)}">
+            Save
+          </button>
+          <button type="button" class="btn ghost" data-visual-action="copy" data-library-id="${escapeHtml(item.id)}">
+            Copy prompt
+          </button>
+        </div>
+      </div>
+      <div class="library-actions">
+        ${dateLabel ? `<span class="library-date">${escapeHtml(dateLabel)}</span>` : ""}
+        <button type="button" class="btn ghost" data-library-action="open">Open</button>
+        <button type="button" class="btn ghost" data-library-action="download">Download</button>
+        <button type="button" class="btn ghost" data-library-action="delete">Delete</button>
+      </div>
+    </article>
+  `;
+};
+
+const handleVisualAction = async (action, id) => {
+  if (!action || !id) return;
+  const existingVisuals = getSavedVisuals();
+  const entry = existingVisuals.find((visual) => String(visual.id) === String(id));
+  if (!entry) return;
+
+  if (action === "save") {
+    const next = [entry, ...existingVisuals.filter((visual) => String(visual.id) !== String(id))].slice(0, 50);
+    saveVisuals(next);
+    showToast("Saved to history", "success");
+    await renderLearningLibrary();
+    return;
+  }
+
+  if (action === "copy") {
+    const promptText = entry.usedPrompt || entry.prompt || "";
+    if (!promptText) {
+      showToast("Prompt is empty", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(promptText);
+      showToast("Prompt copied", "success");
+    } catch (error) {
+      console.error(error);
+      showToast("Unable to copy", "error");
+    }
+  }
+};
+
 const renderLibraryCard = (item) => {
+  if (item.type === "visual") {
+    return renderVisualLibraryCard(item);
+  }
   const dateLabel = safeDate(item.createdAt)?.toLocaleString() || "";
   const typeLabel = item.type === "summary" ? "Summary" : item.type === "exam" ? "Exam" : "Visual";
   const meta =
@@ -356,11 +436,31 @@ const renderLearningLibrary = async () => {
       }
     });
   });
+
+  libraryGrid.querySelectorAll("[data-visual-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const action = button.dataset.visualAction;
+      const card = button.closest("[data-library-id]");
+      const id = card?.dataset.libraryId;
+      if (!action || !id) return;
+      handleVisualAction(action, id);
+    });
+  });
 };
+
 
 const refreshHistoryView = async () => {
   await renderLearningLibrary();
 };
+
+const handleLibraryUpdated = () => {
+  if (activeViewName === "history") {
+    refreshHistoryView();
+  }
+};
+
+window.addEventListener("library:updated", handleLibraryUpdated);
 
 const bindLibraryFilters = () => {
   if (!libraryFilterButtons.length) return;

@@ -1,0 +1,1 @@
+Sample upload fixture text for API contract check.

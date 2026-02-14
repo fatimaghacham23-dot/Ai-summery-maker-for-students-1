@@ -47,6 +47,45 @@ const openapiSpec = {
         },
       },
     },
+    "/api/images/generate": {
+      post: {
+        summary: "Generate AI visuals",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ImageGenerateRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Images generated",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ImageGenerationResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Invalid request",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          429: {
+            description: "Rate limited",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/exams/generate": {
       post: {
         summary: "Generate a new exam",
@@ -837,6 +876,71 @@ const openapiSpec = {
           provider: { type: "string" },
           model: { type: "string" },
         },
+      },
+      ImageGenerateRequest: {
+        type: "object",
+        properties: {
+          prompt: { type: "string" },
+          style: {
+            type: "string",
+            enum: ["prompt-only", "photoreal", "anime", "sketch", "3d", "icon"],
+          },
+          size: {
+            type: "string",
+            enum: ["512x512", "1024x1024", "1536x1024"],
+          },
+          quality: { type: "string", enum: ["standard", "high"] },
+          format: { type: "string", enum: ["png", "jpeg", "webp"] },
+          n: { type: "integer", minimum: 1, maximum: 4 },
+        },
+        required: ["prompt"],
+        example: {
+          prompt: "A stylized diagram of the carbon cycle for high school students.",
+          style: "photoreal",
+          size: "1024x1024",
+          quality: "high",
+          format: "png",
+          n: 4,
+        },
+      },
+      ImageResult: {
+        type: "object",
+        properties: {
+          dataUrl: {
+            type: "string",
+            description: "Data URL that can be rendered directly in an <img> tag",
+            example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...",
+          },
+          mimeType: { type: "string", example: "image/png" },
+          imageBase64: { type: "string" },
+          b64: { type: "string" },
+          revisedPrompt: { type: "string" },
+        },
+        required: ["dataUrl"],
+      },
+      ImageGenerationResponse: {
+        type: "object",
+        properties: {
+          provider: { type: "string", example: "huggingface" },
+          model: { type: "string", example: "stabilityai/stable-diffusion-2-1" },
+          usedPrompt: { type: "string" },
+          style: { type: "string" },
+          size: { type: "string" },
+          quality: { type: "string" },
+          format: { type: "string" },
+          images: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ImageResult" },
+          },
+          raw: {
+            type: "object",
+            properties: {
+              contentType: { type: "string", example: "image/png" },
+              byteLength: { type: "integer", example: 83264 },
+            },
+          },
+        },
+        required: ["provider", "model", "images"],
       },
       DocumentResponse: {
         type: "object",

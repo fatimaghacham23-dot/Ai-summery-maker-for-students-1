@@ -13,6 +13,7 @@ const toolsRouter = require("./routes/tools");
 const persistenceRouter = require("./routes/persistence");
 const shareViewRouter = require("./routes/shareView");
 const inputsRouter = require("./routes/inputs");
+const imagesRouter = require("./routes/images");
 const { debugRouter } = require("./debug/debugRoutes");
 const openapiSpec = require("./docs/openapi");
 
@@ -43,6 +44,7 @@ app.use(morgan("dev"));
 
 app.get("/health", healthRouter);
 app.use("/api", summarizeRouter);
+app.use("/api", imagesRouter);
 app.use("/api", examsRouter);
 app.use("/api", knowledgeRouter);
 app.use("/api", persistenceRouter);

@@ -1,3 +1,5 @@
+const { isQuietTestLogs } = require("../utils/quietLogs");
+
 class AppError extends Error {
   constructor(message, statusCode, code, details) {
     super(message);
@@ -24,7 +26,9 @@ const errorHandler = (err, req, res, next) => {
       reason: err.reason || "validation-too-strict",
       debug: err.debug || null,
     };
-    console.warn("EXAM_GENERATION_FAILED", JSON.stringify(payload, null, 2));
+    if (!isQuietTestLogs()) {
+      console.warn("EXAM_GENERATION_FAILED", JSON.stringify(payload, null, 2));
+    }
     res.status(err.statusCode || 422).json(payload);
     return;
   }
@@ -33,7 +37,11 @@ const errorHandler = (err, req, res, next) => {
   const code = err.code || "INTERNAL_ERROR";
 
   if (statusCode >= 500) {
-    console.error(err);
+    const shouldLog500Error =
+      !isQuietTestLogs() || err.code !== "YOUTUBE_TRANSCRIPT_BLOCKED";
+    if (shouldLog500Error) {
+      console.error(err);
+    }
   }
 
   const response = {

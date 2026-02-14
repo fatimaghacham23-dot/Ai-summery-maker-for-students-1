@@ -4,6 +4,7 @@ process.env.DATABASE_PATH = ":memory:";
 const request = require("supertest");
 const app = require("../src/app");
 const { db } = require("../src/db");
+const { buildSmokePayload, DEFAULT_SMOKE_SEED } = require("../scripts/smokePayload");
 const {
   SCENARIO_WRAPPER_TOKENS,
   SCENARIO_EVIDENCE_TOKEN_RATIO_THRESHOLD,
@@ -708,6 +709,24 @@ An empire expands by conquering neighboring lands over many years.
       },
       120000
     );
+  });
+
+  test("smoke exam payload generates deterministic strict exam", async () => {
+    const payload = buildSmokePayload({ seed: DEFAULT_SMOKE_SEED });
+    const response = await request(app).post("/api/exams/generate").send(payload);
+    expect(response.status).toBe(200);
+    expect(response.body.config.strictTypes).toBe(true);
+    expect(response.body.meta?.subjectCategory).toBe("mixed");
+    const questions = response.body.questions || [];
+    expect(questions).toHaveLength(payload.questionCount);
+    const typeCounts = questions.reduce((counts, question) => {
+      counts[question.type] = (counts[question.type] || 0) + 1;
+      return counts;
+    }, {});
+    Object.entries(payload.types).forEach(([type, count]) => {
+      expect(typeCounts[type] || 0).toBe(count);
+    });
+    expect(response.body.missing).toBeUndefined();
   });
 
   test("scenario share failure surfaces debug info", async () => {

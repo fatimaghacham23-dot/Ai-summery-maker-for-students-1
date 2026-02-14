@@ -60,17 +60,29 @@ class ApiError extends Error {
 
 const requestJson = async (path, options = {}) => {
   const url = buildApiUrl(path);
+  const { signal: userSignal, headers: customHeaders, ...restOptions } = options || {};
   const controller = new AbortController();
+  const signal = controller.signal;
+
+  const handleUserAbort = () => controller.abort();
+  if (userSignal) {
+    if (userSignal.aborted) {
+      controller.abort();
+    } else {
+      userSignal.addEventListener("abort", handleUserAbort);
+    }
+  }
+
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
 
   try {
     const response = await fetch(url, {
       credentials: "include",
-      signal: controller.signal,
-      ...options,
+      signal,
+      ...restOptions,
       headers: {
         "Content-Type": "application/json",
-        ...(options.headers || {}),
+        ...(customHeaders || {}),
       },
     });
 
@@ -93,6 +105,9 @@ const requestJson = async (path, options = {}) => {
     throw new ApiError(error.message || "Network error");
   } finally {
     clearTimeout(timeout);
+    if (userSignal) {
+      userSignal.removeEventListener("abort", handleUserAbort);
+    }
   }
 };
 

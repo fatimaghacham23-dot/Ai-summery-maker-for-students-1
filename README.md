@@ -32,6 +32,10 @@ Copy `.env.example` to `.env` and update values as needed:
 - `OPENAI_API_KEY=...`
 - `OPENAI_MODEL=gpt-4o-mini`
 
+## Smoke test
+
+Run `node smoke_test.js` from the repo root once dependencies are installed to verify smoke coverage before pushing or releasing.
+
 ## API
 
 - `GET /health`

@@ -6,6 +6,7 @@ const { randomUUID } = require("crypto");
 const { AppError } = require("../middleware/errorHandler");
 const { db } = require("../db");
 const { ensureSafeUrl, fetchWithTimeout } = require("../utils/network");
+const { isQuietTestLogs } = require("../utils/quietLogs");
 const {
   SimpleCookieJar,
   extractInnertubeConfigFromHtml,
@@ -46,7 +47,7 @@ const CONSENT_PATTERNS = [
   /www\.google\.com\/sorry\//i,
 ];
 
-const shouldLogYouTubeDebug = process.env.NODE_ENV !== "test";
+const shouldLogYouTubeDebug = () => !isQuietTestLogs();
 
 const stripLanguage = (value) => {
   if (!value) {
@@ -428,7 +429,7 @@ const findGetTranscriptEndpointParams = (value) => {
 };
 
 const debugLog = (...args) => {
-  if (!shouldLogYouTubeDebug) {
+  if (!shouldLogYouTubeDebug()) {
     return;
   }
   console.debug(...args);
@@ -451,7 +452,7 @@ const logCaptionFetchDebug = ({
   youtubeiJsonErrorCode,
   youtubeiJsonErrorMessage,
 }) => {
-  if (!shouldLogYouTubeDebug) {
+  if (!shouldLogYouTubeDebug()) {
     return;
   }
   let finalUrlDomain = null;
@@ -478,7 +479,7 @@ const logCaptionFetchDebug = ({
 };
 
 const logInnertubeConfigFlags = (videoId, config = {}) => {
-  if (!shouldLogYouTubeDebug) {
+  if (!shouldLogYouTubeDebug()) {
     return;
   }
   const hasApiKey = Boolean(config?.apiKey ?? config?.hasApiKey);

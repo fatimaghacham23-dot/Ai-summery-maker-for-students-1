@@ -419,22 +419,48 @@
                     placeholder="Example: A labeled diagram of the water cycle for 9th grade, clean minimalist style"
                   ></textarea>
                 </div>
-                <div class="form-field">
-                  <label for="imageStyle">Style</label>
-                  <select id="imageStyle">
-                    <option value="academic" selected>Modern Academic</option>
-                    <option value="minimal">Minimal line art</option>
-                    <option value="infographic">Infographic</option>
-                    <option value="sketch">Sketch notebook</option>
-                  </select>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="imageStyle">Style preset</label>
+                    <select id="imageStyle">
+                      <option value="prompt-only" selected>Prompt only</option>
+                      <option value="photoreal">Photoreal</option>
+                      <option value="anime">Anime</option>
+                      <option value="sketch">Sketch</option>
+                      <option value="3d">3D render</option>
+                      <option value="icon">Icon</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="imageSize">Size</label>
+                    <select id="imageSize">
+                      <option value="512x512">512×512</option>
+                      <option value="1024x1024" selected>1024×1024</option>
+                      <option value="1536x1024">1536×1024</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="imageQuality">Quality</label>
+                    <select id="imageQuality">
+                      <option value="standard" selected>Standard</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
                 </div>
               </article>
 
               <article class="card step-card" data-step="2">
                 <div class="step-number">Step 2</div>
                 <h3>Generate</h3>
-                <button type="button" class="btn primary btn-lg" data-action="generate-image">Generate Visual</button>
-                <p class="helper-text" id="imageStatusText">Status: Idle</p>
+                <div class="image-control-row">
+                  <button type="button" class="btn primary btn-lg" data-action="generate-image">Generate Visual</button>
+                  <button type="button" class="btn ghost btn-lg" data-action="cancel-image-generation" hidden>Cancel</button>
+                </div>
+                <p class="helper-text image-status-row">
+                  <span id="imageStatusText">Status: Idle</span>
+                  <span id="imageProviderBadge" class="provider-badge" hidden>Provider: mock</span>
+                </p>
+                <div id="imageError" class="summary-error" hidden></div>
               </article>
             </section>
 

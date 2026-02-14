@@ -1,74 +1,38 @@
+import { requestJson } from "./api.js";
 import { showToast } from "./ui.js";
 
 const STORAGE_KEY = "saved-visuals";
 
 const imagePrompt = document.getElementById("imagePrompt");
 const imageStyle = document.getElementById("imageStyle");
+const imageSize = document.getElementById("imageSize");
+const imageQuality = document.getElementById("imageQuality");
 const imageCanvas = document.getElementById("imageCanvas");
 const imageStatusText = document.getElementById("imageStatusText");
+const imageProviderBadge = document.getElementById("imageProviderBadge");
+const errorContainer = document.getElementById("imageError");
 const generateBtn = document.querySelector("[data-action=generate-image]");
+const cancelBtn = document.querySelector("[data-action=cancel-image-generation]");
 
-let viewLoading = false;
-let latestImageUrl = "";
-let scanIntervalId = null;
-let scanTimeoutId = null;
-let currentBackdrop = null;
+let isGenerating = false;
+let currentController = null;
+let cancelRequested = false;
+let latestImages = [];
+let latestMeta = null;
 
-const setStatus = (text) => {
-  if (!imageStatusText) return;
-  imageStatusText.textContent = `Status: ${text}`;
-};
+const defaultGenerateLabel = generateBtn?.textContent?.trim() || "Generate Visual";
 
-const setLoadingState = (isLoading) => {
-  viewLoading = Boolean(isLoading);
-  if (generateBtn) {
-    generateBtn.disabled = viewLoading;
-    generateBtn.textContent = viewLoading ? "Generating..." : "Generate Visual";
-  }
-};
+const escapeHtml = (value) =>
+  String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 
-const renderSkeleton = () => {
-  if (!imageCanvas) return;
-  imageCanvas.innerHTML = `
-    <div class="image-skeleton">
-      <div class="image-skeleton-stage">
-        <div class="skeleton" style="height: 320px; width: 100%;"></div>
-        <div class="scan-overlay" aria-live="polite">
-          <p class="scan-text">Analyzing prompt...</p>
-        </div>
-      </div>
-      <div class="image-actions">
-        <div class="skeleton" style="height: 44px; width: 160px;"></div>
-        <div class="skeleton" style="height: 44px; width: 180px;"></div>
-      </div>
-    </div>
-  `;
-};
-
-const stopScanOverlay = () => {
-  if (scanIntervalId) {
-    window.clearInterval(scanIntervalId);
-    scanIntervalId = null;
-  }
-  if (scanTimeoutId) {
-    window.clearTimeout(scanTimeoutId);
-    scanTimeoutId = null;
-  }
-};
-
-const startScanOverlay = () => {
-  stopScanOverlay();
-  const phrases = ["Analyzing prompt...", "Sketching outlines...", "Rendering textures..."];
-  let index = 0;
-  const textEl = imageCanvas?.querySelector(".scan-text");
-  if (textEl) {
-    textEl.textContent = phrases[index];
-  }
-  scanIntervalId = window.setInterval(() => {
-    index = (index + 1) % phrases.length;
-    const nextEl = imageCanvas?.querySelector(".scan-text");
-    if (nextEl) nextEl.textContent = phrases[index];
-  }, 900);
+const extractBase64FromDataUrl = (dataUrl) => {
+  const match = String(dataUrl || "").match(/^data:[^;]+;base64,(.+)$/);
+  return match ? match[1] : "";
 };
 
 const loadSavedVisuals = () => {
@@ -76,7 +40,8 @@ const loadSavedVisuals = () => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  } catch (error) {
+    console.error(error);
     return [];
   }
 };
@@ -89,220 +54,281 @@ const saveVisuals = (items) => {
   }
 };
 
-const handleDownload = (url) => {
-  if (!url) return;
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "visual.png";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+const renderPlaceholder = () => {
+  if (!imageCanvas) return;
+  setProviderBadge(null);
+  imageCanvas.innerHTML = `
+    <div class="empty-state">
+      <svg class="empty-state-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" fill="none" stroke="currentColor" stroke-width="2" />
+        <polyline points="21 15 16 10 5 21" fill="none" stroke="currentColor" stroke-width="2" />
+      </svg>
+      <p class="empty-state-title">No visual yet</p>
+      <p class="empty-state-subtitle">Write a prompt and generate a visual to preview it here.</p>
+    </div>
+  `;
 };
 
-const handleCopy = async (url) => {
-  if (!url) return;
+const setStatus = (text) => {
+  if (!imageStatusText) return;
+  imageStatusText.textContent = `Status: ${text}`;
+};
+
+const setProviderBadge = (provider) => {
+  if (!imageProviderBadge) return;
+  if (!provider) {
+    imageProviderBadge.hidden = true;
+    imageProviderBadge.textContent = "";
+    return;
+  }
+  imageProviderBadge.textContent = `Provider: ${provider}`;
+  imageProviderBadge.hidden = false;
+};
+
+const clearError = () => {
+  if (!errorContainer) return;
+  errorContainer.hidden = true;
+  errorContainer.textContent = "";
+};
+
+const showInlineError = (message) => {
+  if (!errorContainer) return;
+  errorContainer.textContent = message;
+  errorContainer.hidden = !message;
+};
+
+const setLoadingState = (loading) => {
+  isGenerating = Boolean(loading);
+  if (generateBtn) {
+    generateBtn.disabled = isGenerating;
+    generateBtn.textContent = isGenerating ? "Generating…" : defaultGenerateLabel;
+  }
+  if (cancelBtn) {
+    cancelBtn.hidden = !isGenerating;
+  }
+};
+
+const bindTileActions = () => {
+  if (!imageCanvas) return;
+  imageCanvas.querySelectorAll("[data-image-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const action = button.dataset.imageAction;
+      const index = Number(button.dataset.index);
+      if (action === "save") {
+        handleSave(index);
+        return;
+      }
+      if (action === "copy") {
+        await handleCopy(index);
+      }
+    });
+  });
+};
+
+const handleSave = (index) => {
+  const candidate = latestImages[index];
+  if (!candidate || !latestMeta) {
+    showToast("Nothing to save yet", "error");
+    return;
+  }
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      createdAt: new Date().toISOString(),
+      prompt: latestMeta.prompt,
+      usedPrompt: latestMeta.usedPrompt,
+      style: latestMeta.style,
+      size: latestMeta.size,
+      quality: latestMeta.quality,
+      mimeType: candidate.mimeType,
+      imageBase64: candidate.imageBase64 || candidate.b64,
+    };
+  const existing = loadSavedVisuals();
+  const next = [entry, ...existing].slice(0, 50);
+  saveVisuals(next);
+  showToast("Saved to history", "success");
+  window.dispatchEvent(new CustomEvent("library:updated"));
+};
+
+const handleCopy = async (index) => {
+  const candidate = latestImages[index];
+  if (!candidate || !latestMeta) {
+    showToast("Nothing to copy", "error");
+    return;
+  }
+  const textToCopy = candidate.revisedPrompt || latestMeta.usedPrompt || latestMeta.prompt;
+  if (!textToCopy) {
+    showToast("Prompt is empty", "error");
+    return;
+  }
   try {
-    await navigator.clipboard.writeText(url);
-    showToast("Link copied", "success");
+    await navigator.clipboard.writeText(textToCopy);
+    showToast("Prompt copied", "success");
   } catch (error) {
     console.error(error);
     showToast("Unable to copy", "error");
   }
 };
 
-const triggerSuccessPop = (button) => {
-  if (!button) return;
-  button.classList.remove("is-success-pop");
-  void button.offsetWidth;
-  button.classList.add("is-success-pop");
-  window.setTimeout(() => button.classList.remove("is-success-pop"), 700);
-};
-
-const handleSave = ({ prompt, style, url }) => {
-  if (!url) {
-    showToast("Nothing to save", "error");
-    return;
-  }
-  const now = new Date();
-  const entry = {
-    id: `${now.getTime()}`,
-    createdAt: now.toISOString(),
-    prompt,
-    style,
-    url,
-  };
-  const existing = loadSavedVisuals();
-  const next = [entry, ...existing].slice(0, 50);
-  saveVisuals(next);
-  showToast("Saved to history", "success");
-};
-
-const ensureBackdrop = () => {
-  if (currentBackdrop && document.body.contains(currentBackdrop)) {
-    return currentBackdrop;
-  }
-  const backdrop = document.createElement("div");
-  backdrop.className = "image-backdrop";
-  backdrop.addEventListener("click", () => {
-    const expanded = document.querySelector(".generated-image.is-expanded");
-    expanded?.classList.remove("is-expanded");
-    document.body.classList.remove("image-lightbox");
-    backdrop.remove();
-    currentBackdrop = null;
-  });
-  currentBackdrop = backdrop;
-  return backdrop;
-};
-
-const toggleLightbox = (figure) => {
-  if (!figure) return;
-  const next = !figure.classList.contains("is-expanded");
-  const backdrop = ensureBackdrop();
-  if (next) {
-    document.body.appendChild(backdrop);
-    document.body.classList.add("image-lightbox");
-    figure.classList.add("is-expanded");
-    return;
-  }
-  figure.classList.remove("is-expanded");
-  document.body.classList.remove("image-lightbox");
-  backdrop.remove();
-  currentBackdrop = null;
-};
-
-const getStyleLabel = (style) => {
-  if (style === "academic") return "Scientific Diagram";
-  if (style === "minimal") return "Minimal Line Art";
-  if (style === "infographic") return "Infographic";
-  if (style === "sketch") return "Sketch Notebook";
-  return "Visual";
-};
-
-const renderImage = ({ prompt, style, url }) => {
+const renderImageGrid = (payload, originalPrompt) => {
   if (!imageCanvas) return;
-  latestImageUrl = url;
-  const styleLabel = getStyleLabel(style);
+  const usedPrompt = payload.usedPrompt || originalPrompt;
+  latestMeta = {
+    prompt: originalPrompt,
+    usedPrompt,
+    style: payload.style || "prompt-only",
+    size: payload.size || "1024x1024",
+    quality: payload.quality || "standard",
+  };
 
-  imageCanvas.innerHTML = `
-    <figure class="generated-image">
-      <img class="generated-image__img" src="${url}" alt="Generated visual" loading="lazy" />
-      <div class="generated-image__overlay" aria-hidden="true">
-        <div class="overlay-actions">
-          <button type="button" class="overlay-btn" data-overlay-action="download" aria-label="Download">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-          </button>
-          <button type="button" class="overlay-btn" data-overlay-action="copy" aria-label="Copy link">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      <figcaption class="generated-image__meta">
-        <strong>${style === "academic" ? "Modern Academic" : style}</strong>
-        <span class="helper-text">${prompt ? String(prompt).slice(0, 140) : ""}</span>
-        <div class="prompt-tags">
-          <span class="prompt-tag">${styleLabel}</span>
-          <span class="prompt-tag secondary">Simulation</span>
-        </div>
-      </figcaption>
-    </figure>
-    <div class="image-actions">
-      <button type="button" class="btn secondary" data-image-action="download">Download</button>
-      <button type="button" class="btn ghost" data-image-action="save">Save to History</button>
-    </div>
-  `;
+  setProviderBadge(payload.provider || null);
 
-  const img = imageCanvas.querySelector("img");
-  img?.addEventListener("load", () => {
-    img.classList.add("is-loaded");
-  });
-
-  const figure = imageCanvas.querySelector(".generated-image");
-  figure?.addEventListener("click", (event) => {
-    const overlayClick = event.target.closest("[data-overlay-action]");
-    if (overlayClick) return;
-    toggleLightbox(figure);
-  });
-
-  imageCanvas.querySelectorAll("[data-overlay-action]").forEach((button) => {
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const action = button.dataset.overlayAction;
-      if (action === "download") {
-        handleDownload(url);
-        return;
-      }
-      if (action === "copy") {
-        handleCopy(url);
-      }
-    });
-  });
-
-  imageCanvas.querySelectorAll("[data-image-action]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const action = button.dataset.imageAction;
-      if (action === "download") {
-        handleDownload(url);
-        return;
-      }
-      if (action === "save") {
-        handleSave({ prompt, style, url });
-        const btn = imageCanvas.querySelector('[data-image-action="save"]');
-        if (btn) {
-          if (!btn.querySelector(".success-pop")) {
-            btn.insertAdjacentHTML(
-              "beforeend",
-              `<svg class="success-pop" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-            );
+  latestImages = Array.isArray(payload.images)
+    ? payload.images
+        .map((image) => {
+          const dataUrl = String(image?.dataUrl || "");
+          if (!dataUrl) {
+            return null;
           }
-          triggerSuccessPop(btn);
-        }
-      }
-    });
-  });
+          const base64 =
+            image.imageBase64 || image.b64 || extractBase64FromDataUrl(dataUrl);
+          const mimeType =
+            image.mimeType ||
+            dataUrl
+              .split(";")[0]
+              .replace("data:", "")
+              .trim() ||
+            "image/png";
+          return {
+            dataUrl,
+            mimeType,
+            imageBase64: base64,
+            b64: image.b64 || base64,
+            revisedPrompt: image.revisedPrompt || null,
+          };
+        })
+        .filter((image) => Boolean(image))
+    : [];
+
+  if (!latestImages.length) {
+    renderPlaceholder();
+    return;
+  }
+
+  const tiles = latestImages
+    .map((image, index) => {
+      const promptText = escapeHtml(image.revisedPrompt || usedPrompt || "");
+      const styleLabel = escapeHtml(latestMeta.style);
+      const sizeLabel = escapeHtml(latestMeta.size);
+      const qualityLabel = escapeHtml(latestMeta.quality);
+      return `
+        <article class="visual-card" data-index="${index}">
+          <div class="visual-image-wrap">
+            <img
+              class="visual-image"
+              src="${escapeHtml(image.dataUrl)}"
+              alt="Generated visual ${index + 1}"
+              loading="lazy"
+            />
+          </div>
+          <div class="visual-meta">
+            <div class="visual-prompt">${promptText}</div>
+            <div class="visual-tags">
+              <span class="visual-tag">Style: ${styleLabel}</span>
+              <span class="visual-tag">Size: ${sizeLabel}</span>
+              <span class="visual-tag">Quality: ${qualityLabel}</span>
+            </div>
+            <div class="visual-actions">
+              <button type="button" class="btn secondary" data-image-action="save" data-index="${index}">
+                Save
+              </button>
+              <button type="button" class="btn ghost" data-image-action="copy" data-index="${index}">
+                Copy prompt
+              </button>
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  imageCanvas.innerHTML = `<div class="visual-grid">${tiles}</div>`;
+  bindTileActions();
 };
 
-const simulateGeneration = () => {
-  if (!imagePrompt || !imageStyle || !imageCanvas) return;
-  const prompt = String(imagePrompt.value || "").trim();
-  if (!prompt) {
+const generateVisuals = async () => {
+  if (!imagePrompt) return;
+  if (isGenerating) return;
+  const promptValue = String(imagePrompt.value || "").trim();
+  if (!promptValue) {
     showToast("Enter a prompt first", "error");
     return;
   }
 
-  const style = String(imageStyle.value || "academic");
-  setStatus("Generating...");
+  clearError();
+  setProviderBadge(null);
   setLoadingState(true);
-  renderSkeleton();
-  startScanOverlay();
+  setStatus("Generating…");
+  cancelRequested = false;
 
-  scanTimeoutId = window.setTimeout(() => {
-    stopScanOverlay();
-    const seed = `${Math.random()}`.replace("0.", "");
-    const url = `https://picsum.photos/seed/${seed}/800/600`;
-    renderImage({ prompt, style, url });
+  const controller = new AbortController();
+  currentController = controller;
+
+  try {
+    const payload = {
+      prompt: promptValue,
+      style: imageStyle?.value || "prompt-only",
+      size: imageSize?.value || "1024x1024",
+      quality: imageQuality?.value || "standard",
+      format: "png",
+      n: 4,
+    };
+
+    const result = await requestJson("/api/images/generate", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    renderImageGrid(result, promptValue);
     setStatus("Ready");
-    setLoadingState(false);
     showToast("Visual generated", "success");
-  }, 3000);
+  } catch (error) {
+    if (cancelRequested) {
+      setStatus("Canceled");
+      showToast("Generation canceled", "neutral");
+    } else {
+      const message =
+        error?.data?.error?.message || error?.message || "Failed to generate visual";
+      setStatus("Error");
+      setProviderBadge(null);
+      showInlineError(message);
+      showToast(message, "error");
+    }
+  } finally {
+    setLoadingState(false);
+    currentController = null;
+    cancelRequested = false;
+  }
+};
+
+const handleCancel = () => {
+  if (!currentController || !isGenerating) return;
+  cancelRequested = true;
+  currentController.abort();
+  setStatus("Canceling…");
 };
 
 const bindEvents = () => {
-  generateBtn?.addEventListener("click", () => {
-    if (viewLoading) return;
-    simulateGeneration();
-  });
+  generateBtn?.addEventListener("click", generateVisuals);
+  cancelBtn?.addEventListener("click", handleCancel);
 };
 
 const initImagesFlow = () => {
   setStatus("Idle");
   setLoadingState(false);
+  clearError();
+  renderPlaceholder();
   bindEvents();
 };
 

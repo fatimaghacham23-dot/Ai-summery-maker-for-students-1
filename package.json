@@ -21,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "form-data": "^4.0.5",
     "cors": "^2.8.5",
     "docx": "^8.3.0",
     "dotenv": "^16.6.1",
