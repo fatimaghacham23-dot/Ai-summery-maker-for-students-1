@@ -4,7 +4,7 @@ const { z } = require("zod");
 
 const { AppError } = require("../middleware/errorHandler");
 const { getProvider } = require("../providers");
-const { db } = require("../db");
+const { db, runInTransaction } = require("../db");
 const {
   buildExamConfig,
   gradeSubmission,
@@ -21,17 +21,15 @@ const limiterOptions = {
   standardHeaders: true,
   legacyHeaders: false,
   message: {
-    error: {
-      code: "RATE_LIMITED",
-      message: "Too many requests, please try again later.",
-    },
+    error: true,
+    code: "RATE_LIMITED",
+    message: "Too many requests, please try again later.",
   },
 };
 
-const limiter =
-  process.env.NODE_ENV === "test"
-    ? (req, res, next) => next()
-    : rateLimit(limiterOptions);
+const isTestEnvironment =
+  process.env.NODE_ENV === "test" || typeof process.env.JEST_WORKER_ID !== "undefined";
+const limiter = isTestEnvironment ? (req, res, next) => next() : rateLimit(limiterOptions);
 
 const generateSchema = z.object({
   text: z.string().min(50).max(20000),
@@ -101,25 +99,27 @@ router.post("/exams/generate", limiter, async (req, res, next) => {
     });
     const sourceTextHash = crypto.createHash("sha256").update(payload.text).digest("hex");
 
-    const insert = db.prepare(
-      `INSERT INTO exams (title, sourceTextHash, configJson, examJson, createdAt)
-       VALUES (?, ?, ?, ?, ?)`
-    );
-    const placeholderExam = { ...exam, id: null };
-    const info = insert.run(
-      exam.title,
-      sourceTextHash,
-      JSON.stringify(exam.config),
-      JSON.stringify(placeholderExam),
-      exam.createdAt
-    );
-    const examId = Number(info.lastInsertRowid);
-    exam.id = examId;
-    exam.config = { ...(exam.config || {}), strictTypes };
-    db.prepare("UPDATE exams SET examJson = ? WHERE id = ?").run(
-      JSON.stringify(exam),
-      examId
-    );
+    runInTransaction((transactionalDb) => {
+      const insert = transactionalDb.prepare(
+        `INSERT INTO exams (title, sourceTextHash, configJson, examJson, createdAt)
+         VALUES (?, ?, ?, ?, ?)`
+      );
+      const placeholderExam = { ...exam, id: null };
+      const info = insert.run(
+        exam.title,
+        sourceTextHash,
+        JSON.stringify(exam.config),
+        JSON.stringify(placeholderExam),
+        exam.createdAt
+      );
+      const examId = Number(info.lastInsertRowid);
+      exam.id = examId;
+      exam.config = { ...(exam.config || {}), strictTypes };
+      transactionalDb.prepare("UPDATE exams SET examJson = ? WHERE id = ?").run(
+        JSON.stringify(exam),
+        examId
+      );
+    });
 
     res.json(exam);
   } catch (error) {
@@ -190,17 +190,19 @@ router.post("/exams/:id/submit", limiter, (req, res, next) => {
     exam.id = examId;
     const grading = gradeSubmission(exam, payload.answers);
 
-    const attemptInsert = db.prepare(
-      `INSERT INTO attempts (id, examId, answersJson, scoreJson, createdAt)
-       VALUES (?, ?, ?, ?, ?)`
-    );
-    attemptInsert.run(
-      grading.attemptId,
-      examId,
-      JSON.stringify(payload.answers),
-      JSON.stringify({ score: grading.score, results: grading.results }),
-      grading.createdAt
-    );
+    runInTransaction((transactionalDb) => {
+      const attemptInsert = transactionalDb.prepare(
+        `INSERT INTO attempts (id, examId, answersJson, scoreJson, createdAt)
+         VALUES (?, ?, ?, ?, ?)`
+      );
+      attemptInsert.run(
+        grading.attemptId,
+        examId,
+        JSON.stringify(payload.answers),
+        JSON.stringify({ score: grading.score, results: grading.results }),
+        grading.createdAt
+      );
+    });
 
     res.json({
       attemptId: grading.attemptId,

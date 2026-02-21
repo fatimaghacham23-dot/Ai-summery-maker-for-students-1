@@ -1,5 +1,6 @@
 const { AppError } = require("../middleware/errorHandler");
 const { debugFetch } = require("../debug/debugFetch");
+const { getOpenAiApiKey } = require("../utils/openaiConfig");
 
 const TOOL_OPENAI_METADATA = {
   summary: {
@@ -11,6 +12,15 @@ const TOOL_OPENAI_METADATA = {
     outputType: "json",
   },
 };
+
+const COMMON_SAFETY_DIRECTIVES = [
+  "Do not fabricate facts.",
+  "Do not invent statistics.",
+  "If information is missing, say so clearly.",
+  "Do not claim real-world accuracy unless explicitly provided with facts.",
+];
+
+const TOOL_FOCUS_DIRECTIVE = "Work strictly with the provided input and do not speculate beyond it.";
 
 const getToolLabel = (tool) => {
   switch (tool) {
@@ -43,11 +53,15 @@ const getToolLabel = (tool) => {
   }
 };
 
-const buildToolPrompt = ({ tool, text, controls = {}, options = {} }) => {
+const buildToolPrompt = ({ tool, text, controls = {}, options = {}, languageContext = {} }) => {
   const { length = 0.5, tone = "professional", language = "en", focus = "student" } = controls;
   const metadata = TOOL_OPENAI_METADATA[tool.split(".")[0]] || TOOL_OPENAI_METADATA.summary;
+  const languageInstruction = languageContext.instruction;
   const instructions = [
     "You are StudySummarize, an AI companion for students, managers, developers, and lawyers.",
+    languageInstruction,
+    ...COMMON_SAFETY_DIRECTIVES,
+    TOOL_FOCUS_DIRECTIVE,
     `Tool: ${tool}`,
     `Focus: ${focus}`,
     `Tone: ${tone}`,
@@ -77,7 +91,7 @@ const buildToolPrompt = ({ tool, text, controls = {}, options = {} }) => {
 };
 
 const ensureApiKey = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getOpenAiApiKey();
   if (!apiKey) {
     throw new AppError(
       "OPENAI_API_KEY is missing. Set it in your environment to use the openai provider.",
@@ -88,10 +102,15 @@ const ensureApiKey = () => {
   return apiKey;
 };
 
-const summarize = async ({ text, length, format }) => {
+const summarize = async ({ text, length, format, languageContext = {} }) => {
   const apiKey = ensureApiKey();
 
-  const getPrompt = ({ text: promptText, length: promptLength, format: promptFormat }) => {
+  const getPrompt = ({
+    text: promptText,
+    length: promptLength,
+    format: promptFormat,
+    languageContext: promptLangContext = {},
+  }) => {
     const lengthInstructions = {
       short: "2-3 sentences",
       medium: "4-6 sentences",
@@ -106,6 +125,10 @@ const summarize = async ({ text, length, format }) => {
 
     return [
       "You are a helpful assistant that summarizes study notes for students.",
+      promptLangContext.instruction,
+      ...COMMON_SAFETY_DIRECTIVES,
+      "Summaries must rely only on the provided text and never invent new facts.",
+      "If the requested detail is missing or unclear, say so clearly instead of guessing.",
       `Summary length: ${lengthInstructions[promptLength]}.`,
       formatInstruction,
       "Keep the summary concise and clear.",
@@ -125,7 +148,7 @@ const summarize = async ({ text, length, format }) => {
       messages: [
         {
           role: "user",
-          content: getPrompt({ text, length, format }),
+          content: getPrompt({ text, length, format, languageContext }),
         },
       ],
       temperature: 0.3,
@@ -151,9 +174,9 @@ const summarize = async ({ text, length, format }) => {
   return content;
 };
 
-const runTool = async ({ tool, text, controls = {}, options = {} }) => {
+const runTool = async ({ tool, text, controls = {}, options = {}, languageContext = {} }) => {
   const apiKey = ensureApiKey();
-  const prompt = buildToolPrompt({ tool, text, controls, options });
+  const prompt = buildToolPrompt({ tool, text, controls, options, languageContext });
   const response = await debugFetch("tool_run", "https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -195,6 +218,7 @@ const runTool = async ({ tool, text, controls = {}, options = {} }) => {
     meta: {
       provider: "openai",
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      language: languageContext.finalLanguage,
     },
   };
 };

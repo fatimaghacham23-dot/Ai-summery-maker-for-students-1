@@ -47,28 +47,28 @@ const openapiSpec = {
         },
       },
     },
-    "/api/images/generate": {
+    "/api/writer/generate": {
       post: {
-        summary: "Generate AI visuals",
+        summary: "Generate a writer studio output",
         requestBody: {
           required: true,
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/ImageGenerateRequest" },
+              schema: { $ref: "#/components/schemas/WriterGenerateRequest" },
             },
           },
         },
         responses: {
           200: {
-            description: "Images generated",
+            description: "Writer output",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/ImageGenerationResponse" },
+                schema: { $ref: "#/components/schemas/WriterRunResponse" },
               },
             },
           },
           400: {
-            description: "Invalid request",
+            description: "Validation error",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ApiError" },
@@ -80,6 +80,530 @@ const openapiSpec = {
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/writer/refine": {
+      post: {
+        summary: "Refine a writer output",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/WriterRefineRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Refined writer output",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/WriterRefineResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/writer/history": {
+      get: {
+        summary: "List recent writer runs",
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Writer history",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/WriterHistoryItem" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/writer/save": {
+      post: {
+        summary: "Save writer run to history",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/WriterSaveRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Saved item",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SavedItemResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/writer/share": {
+      post: {
+        summary: "Create a share link for writer output",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/WriterShareRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Share link",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/WriterShareResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          404: {
+            description: "Run not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/grammar/fix": {
+      post: {
+        summary: "Fix grammar and clarity for pasted text",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GrammarFixRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Grammar fix result",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GrammarFixResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          429: {
+            description: "Rate limited",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          503: {
+            description: "Provider configuration error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/grammar/refine": {
+      post: {
+        summary: "Refine an existing grammar fix",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GrammarRefineRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Refined grammar output",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GrammarRefineResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/grammar/history": {
+      get: {
+        summary: "List recent grammar runs",
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+        ],
+        responses: {
+          200: {
+            description: "History",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/GrammarHistoryItem" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/grammar/save": {
+      post: {
+        summary: "Save a grammar run",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GrammarSaveRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Saved item",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SavedItemResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          404: {
+            description: "Run not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/grammar/share": {
+      post: {
+        summary: "Create a share link for grammar output",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GrammarShareRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Share link",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GrammarShareResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          404: {
+            description: "Run not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/song/generate": {
+      post: {
+        summary: "Generate a new song",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SongGenerateRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Song output",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SongRunResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          429: {
+            description: "Rate limited",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/song/refine": {
+      post: {
+        summary: "Refine an existing song",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SongRefineRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Refined song",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SongRunResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/song/history": {
+      get: {
+        summary: "List song history",
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Song history",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/SongHistoryItem" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/song/save": {
+      post: {
+        summary: "Save a song run",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SongSaveRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Song saved",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SavedItemResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/song/share": {
+      post: {
+        summary: "Create a share link for a song",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SongShareRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Share link",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SongShareResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/image/generate": {
+      post: {
+        summary: "Generate an AI visual from a prompt",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ImageGenerateRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Generated visual",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ImageGenerateResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Invalid request/configuration",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+          429: {
+            description: "Rate limited",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/image/history": {
+      get: {
+        summary: "Recent image generations",
+        responses: {
+          200: {
+            description: "History",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/ImageHistoryItem" },
+                },
               },
             },
           },
@@ -877,6 +1401,431 @@ const openapiSpec = {
           model: { type: "string" },
         },
       },
+      WriterGenerateRequest: {
+        type: "object",
+        properties: {
+          mode: {
+            type: "string",
+            description: "Writer prompt mode",
+            enum: [
+              "essay",
+              "outline",
+              "paraphrase",
+              "expand",
+              "shorten",
+              "explain",
+              "flashcards",
+              "email",
+              "cover-letter",
+              "notes-to-study-guide",
+            ],
+          },
+          text: { type: "string" },
+          tone: { type: "string", enum: ["academic", "neutral", "simple", "persuasive"] },
+          length: { type: "string", enum: ["short", "medium", "long"] },
+          level: {
+            type: "string",
+            enum: ["high_school", "bachelor", "master", "phd"],
+          },
+          citationStyle: {
+            type: "string",
+            enum: ["none", "apa", "mla", "chicago"],
+          },
+          keywords: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: ["mode", "text"],
+      },
+      WriterRefineRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          text: { type: "string" },
+          instruction: {
+            type: "string",
+            enum: ["clarity", "academic", "structure", "concise"],
+          },
+          mode: { type: "string" },
+          tone: { type: "string" },
+          length: { type: "string" },
+          level: { type: "string" },
+          citationStyle: { type: "string" },
+          keywords: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: ["mode", "instruction"],
+      },
+      WriterRunMeta: {
+        type: "object",
+        properties: {
+          mode: { type: "string" },
+          tone: { type: "string" },
+          length: { type: "string" },
+          level: { type: "string" },
+          citationStyle: { type: "string" },
+          keywords: {
+            type: "array",
+            items: { type: "string" },
+          },
+          wordCount: { type: "integer" },
+          provider: { type: "string" },
+          model: { type: "string" },
+        },
+        required: ["mode", "tone", "length", "level", "citationStyle", "wordCount"],
+      },
+      WriterRunResponse: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          output: { type: "string" },
+          meta: { $ref: "#/components/schemas/WriterRunMeta" },
+        },
+        required: ["runId", "output", "meta"],
+      },
+      WriterRefineMeta: {
+        type: "object",
+        properties: {
+          mode: { type: "string" },
+          tone: { type: "string" },
+          length: { type: "string" },
+          level: { type: "string" },
+          citationStyle: { type: "string" },
+          keywords: {
+            type: "array",
+            items: { type: "string" },
+          },
+          instruction: { type: "string" },
+          wordCount: { type: "integer" },
+          provider: { type: "string" },
+          model: { type: "string" },
+        },
+        required: ["mode", "tone", "length", "level", "citationStyle", "wordCount", "instruction"],
+      },
+      WriterRefineResponse: {
+        type: "object",
+        properties: {
+          output: { type: "string" },
+          meta: { $ref: "#/components/schemas/WriterRefineMeta" },
+        },
+        required: ["output", "meta"],
+      },
+      WriterHistoryItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          createdAt: { type: "string" },
+          mode: { type: "string" },
+          tone: { type: "string" },
+          length: { type: "string" },
+          level: { type: "string" },
+          citationStyle: { type: "string" },
+          keywords: {
+            type: "array",
+            items: { type: "string" },
+          },
+          snippet: { type: "string" },
+          wordCount: { type: "integer" },
+        },
+      },
+      WriterSaveRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          title: { type: "string" },
+        },
+        required: ["runId"],
+      },
+      WriterShareRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          savedItemId: { type: "string" },
+          ttlHours: { type: "number" },
+        },
+      },
+      WriterShareResponse: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          urlPath: { type: "string" },
+          expiresAt: { type: "string" },
+        },
+        required: ["token", "urlPath"],
+      },
+      GrammarFixRequest: {
+        type: "object",
+        properties: {
+          text: { type: "string" },
+          goal: {
+            type: "string",
+            enum: ["grammar", "clarity", "formal", "friendly", "concise", "academic"],
+          },
+          dialect: {
+            type: "string",
+            enum: ["US", "UK", "CA", "AU", "other"],
+          },
+          tone: {
+            type: "string",
+            enum: ["neutral", "formal", "friendly", "professional"],
+          },
+          level: {
+            type: "string",
+            enum: ["light", "standard", "strict"],
+          },
+          preserveMeaning: { type: "boolean" },
+          preserveFormatting: { type: "boolean" },
+          explainChanges: { type: "boolean" },
+        },
+        required: ["text"],
+      },
+      GrammarRefineRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          text: { type: "string" },
+          instructions: { type: "string" },
+        },
+        required: ["instructions"],
+      },
+      GrammarMeta: {
+        type: "object",
+        properties: {
+          goal: { type: "string" },
+          dialect: { type: "string" },
+          tone: { type: "string" },
+          level: { type: "string" },
+          preserveMeaning: { type: "boolean" },
+          preserveFormatting: { type: "boolean" },
+          explainChanges: { type: "boolean" },
+        },
+      },
+      GrammarExplanation: {
+        type: "object",
+        properties: {
+          type: { type: "string" },
+          before: { type: "string" },
+          after: { type: "string" },
+          reason: { type: "string" },
+        },
+      },
+      GrammarFixResponse: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          original: { type: "string" },
+          corrected: { type: "string" },
+          explanations: {
+            type: "array",
+            items: { $ref: "#/components/schemas/GrammarExplanation" },
+          },
+          meta: { $ref: "#/components/schemas/GrammarMeta" },
+          provider: { type: "string" },
+          createdAt: { type: "string" },
+        },
+        required: ["runId", "original", "corrected", "meta", "provider", "createdAt"],
+      },
+      GrammarRefineResponse: {
+        allOf: [{ $ref: "#/components/schemas/GrammarFixResponse" }],
+      },
+      GrammarHistoryItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          createdAt: { type: "string" },
+          snippet: { type: "string" },
+          meta: { $ref: "#/components/schemas/GrammarMeta" },
+        },
+      },
+      GrammarSaveRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          title: { type: "string" },
+        },
+        required: ["runId"],
+      },
+      GrammarShareRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          savedItemId: { type: "string" },
+          ttlHours: { type: "number" },
+        },
+      },
+      GrammarShareResponse: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          urlPath: { type: "string" },
+          expiresAt: { type: "string" },
+        },
+        required: ["token", "urlPath"],
+      },
+      SongGenerateRequest: {
+        type: "object",
+        properties: {
+          prompt: { type: "string" },
+          genre: {
+            type: "string",
+            enum: ["pop", "rock", "hip-hop", "r&b", "electronic", "indie", "country", "folk"],
+          },
+          structure: {
+            type: "string",
+            enum: ["verse-chorus", "verse-chorus-bridge", "story", "loop", "freeform"],
+          },
+          length: { type: "string", enum: ["short", "medium", "long"] },
+          mood: { type: "string" },
+          language: { type: "string" },
+          explicit: { type: "boolean" },
+          includeChords: { type: "boolean" },
+          includeTitleIdeas: { type: "boolean" },
+          rhymeScheme: { type: "string" },
+          syllablesPerLine: { type: "integer", minimum: 1 },
+          referenceArtists: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: ["prompt"],
+        example: {
+          prompt: "Write a hopeful anthem about finishing a big project.",
+          genre: "pop",
+          structure: "verse-chorus-bridge",
+          length: "medium",
+          mood: "uplifting",
+          language: "English",
+          explicit: false,
+          includeChords: true,
+          includeTitleIdeas: true,
+          rhymeScheme: "ABAB",
+          syllablesPerLine: 10,
+          referenceArtists: ["bright indie pop", "modern singer-songwriter"],
+        },
+      },
+      SongRefineRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          instruction: {
+            type: "string",
+            enum: ["clarity", "imagery", "energy", "structure"],
+          },
+          prompt: { type: "string" },
+          genre: { type: "string" },
+          structure: { type: "string" },
+          length: { type: "string" },
+          mood: { type: "string" },
+          language: { type: "string" },
+          explicit: { type: "boolean" },
+          includeChords: { type: "boolean" },
+          includeTitleIdeas: { type: "boolean" },
+          rhymeScheme: { type: "string" },
+          syllablesPerLine: { type: "integer" },
+          referenceArtists: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: ["runId", "instruction"],
+      },
+      SongRunMeta: {
+        type: "object",
+        properties: {
+          prompt: { type: "string" },
+          genre: { type: "string" },
+          structure: { type: "string" },
+          length: { type: "string" },
+          mood: { type: "string" },
+          language: { type: "string" },
+          explicit: { type: "boolean" },
+          includeChords: { type: "boolean" },
+          includeTitleIdeas: { type: "boolean" },
+          rhymeScheme: { type: "string" },
+          syllablesPerLine: { type: "integer" },
+          referenceArtists: {
+            type: "array",
+            items: { type: "string" },
+          },
+          instruction: { type: "string" },
+          wordCount: { type: "integer" },
+          provider: { type: "string" },
+          model: { type: "string" },
+        },
+      },
+      SongRunResponse: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          title: { type: "string" },
+          lyrics: { type: "string" },
+          titleIdeas: {
+            type: "array",
+            items: { type: "string" },
+          },
+          meta: { $ref: "#/components/schemas/SongRunMeta" },
+        },
+        required: ["runId", "title", "lyrics", "meta"],
+      },
+      SongHistoryItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          createdAt: { type: "string" },
+          prompt: { type: "string" },
+          genre: { type: "string" },
+          structure: { type: "string" },
+          length: { type: "string" },
+          mood: { type: "string" },
+          language: { type: "string" },
+          explicit: { type: "boolean" },
+          includeChords: { type: "boolean" },
+          includeTitleIdeas: { type: "boolean" },
+          rhymeScheme: { type: "string" },
+          syllablesPerLine: { type: "integer" },
+          referenceArtists: {
+            type: "array",
+            items: { type: "string" },
+          },
+          snippet: { type: "string" },
+          lyrics: { type: "string" },
+          titleIdeas: {
+            type: "array",
+            items: { type: "string" },
+          },
+          wordCount: { type: "integer" },
+        },
+      },
+      SongSaveRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          title: { type: "string" },
+        },
+        required: ["runId"],
+      },
+      SongShareRequest: {
+        type: "object",
+        properties: {
+          runId: { type: "string" },
+          savedItemId: { type: "string" },
+          ttlHours: { type: "number" },
+        },
+        required: ["runId"],
+      },
+      SongShareResponse: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          urlPath: { type: "string" },
+          expiresAt: { type: "string" },
+        },
+        required: ["token", "urlPath"],
+      },
       ImageGenerateRequest: {
         type: "object",
         properties: {
@@ -887,7 +1836,7 @@ const openapiSpec = {
           },
           size: {
             type: "string",
-            enum: ["512x512", "1024x1024", "1536x1024"],
+            enum: ["1024x1024", "1024x1536", "1536x1024"],
           },
           quality: { type: "string", enum: ["standard", "high"] },
           format: { type: "string", enum: ["png", "jpeg", "webp"] },
@@ -900,47 +1849,47 @@ const openapiSpec = {
           size: "1024x1024",
           quality: "high",
           format: "png",
-          n: 4,
+          n: 1,
         },
       },
-      ImageResult: {
+      ImageGenerateResponse: {
         type: "object",
         properties: {
-          dataUrl: {
+          imageUrl: {
             type: "string",
-            description: "Data URL that can be rendered directly in an <img> tag",
+            description: "Data URL (or accessible URL) that can be shown in an img tag",
             example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...",
           },
-          mimeType: { type: "string", example: "image/png" },
-          imageBase64: { type: "string" },
-          b64: { type: "string" },
-          revisedPrompt: { type: "string" },
-        },
-        required: ["dataUrl"],
-      },
-      ImageGenerationResponse: {
-        type: "object",
-        properties: {
-          provider: { type: "string", example: "huggingface" },
-          model: { type: "string", example: "stabilityai/stable-diffusion-2-1" },
+          provider: {
+            type: "string",
+            enum: ["openai", "huggingface", "mock"],
+          },
+          model: { type: "string" },
           usedPrompt: { type: "string" },
+          revisedPrompt: { type: "string" },
           style: { type: "string" },
           size: { type: "string" },
           quality: { type: "string" },
-          format: { type: "string" },
-          images: {
-            type: "array",
-            items: { $ref: "#/components/schemas/ImageResult" },
-          },
-          raw: {
-            type: "object",
-            properties: {
-              contentType: { type: "string", example: "image/png" },
-              byteLength: { type: "integer", example: 83264 },
-            },
-          },
+          historyId: { type: "string" },
         },
-        required: ["provider", "model", "images"],
+        required: ["imageUrl", "provider"],
+      },
+      ImageHistoryItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          prompt: { type: "string" },
+          usedPrompt: { type: "string" },
+          revisedPrompt: { type: "string" },
+          provider: { type: "string" },
+          model: { type: "string" },
+          size: { type: "string" },
+          quality: { type: "string" },
+          style: { type: "string" },
+          imageUrl: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+        required: ["id", "prompt", "provider", "imageUrl", "createdAt"],
       },
       DocumentResponse: {
         type: "object",

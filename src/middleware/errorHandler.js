@@ -26,10 +26,25 @@ const errorHandler = (err, req, res, next) => {
       reason: err.reason || "validation-too-strict",
       debug: err.debug || null,
     };
+    const details = {};
+    if (err.missing) {
+      details.missing = err.missing;
+    }
+    if (err.reason) {
+      details.reason = err.reason;
+    }
+    if (err.debug) {
+      details.debug = err.debug;
+    }
     if (!isQuietTestLogs()) {
       console.warn("EXAM_GENERATION_FAILED", JSON.stringify(payload, null, 2));
     }
-    res.status(err.statusCode || 422).json(payload);
+    res.status(err.statusCode || 422).json({
+      error: true,
+      code: err.code,
+      message: err.message || "Exam generation failed.",
+      ...(Object.keys(details).length ? { details } : {}),
+    });
     return;
   }
 
@@ -45,14 +60,13 @@ const errorHandler = (err, req, res, next) => {
   }
 
   const response = {
-    error: {
-      code,
-      message: err.message || "Unexpected error",
-    },
+    error: true,
+    message: err.message || "Unexpected error",
+    code,
   };
 
   if (err.details) {
-    response.error.details = err.details;
+    response.details = err.details;
   }
 
   res.status(statusCode).json(response);

@@ -142,7 +142,7 @@ async function runSummarize() {
     const data = await res.json();
 
     if (!res.ok) {
-      const message = data?.error?.message || "Backend error";
+      const message = data?.message || data?.error?.message || "Backend error";
       throw new Error(message);
     }
 

@@ -7923,7 +7923,7 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
 
   const missingBeforeFill = computeMissingCounts(resolvedConfig, questions);
   const missingTotal = Object.values(missingBeforeFill).reduce((sum, count) => sum + count, 0);
-  let distributionAdjustment = null;
+  let fallbackDistributionAdjustment = null;
   if (missingTotal > 0 && !strictTypes) {
     const mcqFamilies = getTemplatesForType("mcq")
       .map((template) => template.family)
@@ -8000,7 +8000,7 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
       questions.push(extra);
       fillCounts[extra.type] = (fillCounts[extra.type] || 0) + 1;
     }
-    distributionAdjustment = {
+    fallbackDistributionAdjustment = {
       requested: resolvedConfig?.types || {},
       missing: missingBeforeFill,
       filledWith: fillCounts,
@@ -8008,30 +8008,194 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     };
   }
 
-  const repetitionCheck = collectRepetitionIssues(questions, {
-    allowRepeatedConcepts: allowGlobalRepeats,
-  });
-  if (repetitionCheck.failingIndexes.length) {
-    repetitionCheck.failingIndexes.forEach((index) => {
-      const existing = questions[index];
-      if (!existing) {
+  const duplicateRepairs = [];
+  const duplicateWarnings = [];
+  const questionTypesOrder = ["mcq", "trueFalse", "shortAnswer", "fillBlank"];
+
+  const buildExistingQuestionSnapshot = (excludeIndex) => {
+    const stems = new Set();
+    const topicIds = new Set();
+    const tokenSets = [];
+    questions.forEach((question, idx) => {
+      if (idx === excludeIndex || !question) {
         return;
       }
-      const subjectForQuestion =
-        normalizeSubjectKey(existing.meta?.subjectCategory) || fallbackSubjectKey;
-      const excludeFamilies = existing.meta?.templateFamily
-        ? new Set([existing.meta.templateFamily])
-        : new Set();
-      questions[index] = null;
-      rebuildUsageState();
-      const replacement = buildQuestionCandidate({
-        type: existing.type,
-        subjectForQuestion,
-        startIndex: index + questions.length,
-        excludeFamilies,
+      const stem = extractPromptStem(question.prompt);
+      if (stem) {
+        stems.add(stem);
+      }
+      if (question.topicConceptId) {
+        topicIds.add(question.topicConceptId);
+      }
+      const tokens = normalizePromptTokens(question.prompt, DEFAULT_STOPWORDS);
+      if (tokens.length) {
+        tokenSets.push(tokens);
+      }
+    });
+    return { stems, topicIds, tokenSets };
+  };
+
+  const hasUnusedConceptCandidates = () => {
+    const currentTopics = new Set(
+      questions.map((question) => question.topicConceptId).filter(Boolean)
+    );
+    return concepts.length > currentTopics.size;
+  };
+
+  const determineDuplicateReason = (index) => {
+    const existing = questions[index];
+    if (!existing) {
+      return "unknown";
+    }
+    const stem = extractPromptStem(existing.prompt);
+    const stemConflict = stem
+      ? questions.some(
+          (question, idx) =>
+            idx !== index &&
+            question &&
+            extractPromptStem(question.prompt) === stem
+        )
+      : false;
+    if (stemConflict) {
+      return "promptStem";
+    }
+    const topicId = existing.topicConceptId;
+    if (topicId) {
+      const topicConflict = questions.some(
+        (question, idx) =>
+          idx !== index && question && question.topicConceptId === topicId
+      );
+      if (topicConflict) {
+        return "topicConceptId";
+      }
+    }
+    const tokens = normalizePromptTokens(existing.prompt, DEFAULT_STOPWORDS);
+    const similarityConflict = tokens.length
+      ? questions.some((question, idx) => {
+          if (idx === index || !question) {
+            return false;
+          }
+          const otherTokens = normalizePromptTokens(question.prompt, DEFAULT_STOPWORDS);
+          return (
+            otherTokens.length > 0 &&
+            jaccardSimilarity(tokens, otherTokens) >= PROMPT_SIMILARITY_THRESHOLD
+          );
+        })
+      : false;
+    if (similarityConflict) {
+      return "similarPrompt";
+    }
+    return "unknown";
+  };
+
+  const attemptDuplicateRepair = (index, reason) => {
+    const existing = questions[index];
+    if (!existing) {
+      return false;
+    }
+    if (strictTypes && isScenarioFamilyMcq(existing)) {
+      duplicateWarnings.push({
+        index,
+        reason,
+        message: "scenario-share-protected",
       });
-      questions[index] = replacement || existing;
+      return false;
+    }
+    if (!hasUnusedConceptCandidates()) {
+      duplicateWarnings.push({
+        index,
+        reason,
+        message: "no-unused-concepts",
+      });
+      return false;
+    }
+    const subjectForQuestion =
+      normalizeSubjectKey(existing.meta?.subjectCategory) || fallbackSubjectKey;
+    const candidateTypes = [
+      existing.type,
+      ...questionTypesOrder.filter((type) => type !== existing.type),
+    ];
+    const snapshot = buildExistingQuestionSnapshot(index);
+    const startIndexBase = index + questions.length;
+    for (const type of candidateTypes) {
+      const replacement = buildQuestionCandidate({
+        type,
+        subjectForQuestion,
+        startIndex: startIndexBase,
+        excludeFamilies: existing.meta?.templateFamily
+          ? new Set([existing.meta.templateFamily])
+          : null,
+      });
+      if (!replacement) {
+        continue;
+      }
+      if (
+        replacement.topicConceptId &&
+        snapshot.topicIds.has(replacement.topicConceptId)
+      ) {
+        continue;
+      }
+      const replacementStem = extractPromptStem(replacement.prompt);
+      if (replacementStem && snapshot.stems.has(replacementStem)) {
+        continue;
+      }
+      const replacementTokens = normalizePromptTokens(
+        replacement.prompt,
+        DEFAULT_STOPWORDS
+      );
+      if (
+        replacementTokens.length &&
+        snapshot.tokenSets.some(
+          (tokenSet) => jaccardSimilarity(tokenSet, replacementTokens) >= 0.9
+        )
+      ) {
+        continue;
+      }
+      questions[index] = replacement;
+      duplicateRepairs.push({
+        index,
+        reason,
+        originalType: existing.type,
+        newType: replacement.type,
+        topicConceptId: replacement.topicConceptId || null,
+      });
       rebuildUsageState();
+      return replacement.type !== existing.type;
+    }
+    duplicateWarnings.push({
+      index,
+      reason,
+      message: "no-unique-candidate",
+    });
+    return false;
+  };
+
+  rebuildUsageState();
+  let duplicateCheck = collectRepetitionIssues(questions, {
+    allowRepeatedConcepts: allowGlobalRepeats,
+  });
+  let dedupPass = 0;
+  while (duplicateCheck.failingIndexes.length && dedupPass < 2) {
+    let replacedAny = false;
+    duplicateCheck.failingIndexes.forEach((index) => {
+      const reason = determineDuplicateReason(index);
+      const replaced = attemptDuplicateRepair(index, reason);
+      if (replaced) {
+        replacedAny = true;
+      }
+    });
+    if (!replacedAny) {
+      break;
+    }
+    duplicateCheck = collectRepetitionIssues(questions, {
+      allowRepeatedConcepts: allowGlobalRepeats,
+    });
+    dedupPass += 1;
+  }
+  if (duplicateCheck.failingIndexes.length) {
+    duplicateWarnings.push({
+      indexes: duplicateCheck.failingIndexes.slice(0, 5),
+      reason: "remaining-duplicates",
     });
   }
 
@@ -8076,7 +8240,6 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
         validate: Date.now() - validateStartedAt,
         total: Date.now() - startedAt,
       },
-      distributionAdjustment: distributionAdjustment || undefined,
     },
   };
 
@@ -8121,33 +8284,38 @@ const generateGroundedExam = ({ text, title, config, seed }) => {
     };
     throw error;
   }
-  if (strictTypes && Object.keys(missing).length) {
-    const error = new Error("Exam generation failed to meet strict type quotas.");
-    error.statusCode = 422;
-    error.code = "EXAM_GENERATION_FAILED";
-    error.missing = missing;
-    error.reason = "strict-types";
-    error.debug = {
-      subjectCategory,
-      attemptsByType,
-      lastErrorsByType: summarizeValidationFailures(validationFailureCountsByType),
-      templateFailures,
-      tfCandidateFailures,
-      exampleFailedCandidates,
-    };
-    throw error;
-  }
+  const requestedTypes = resolvedConfig?.types || {};
+  const actualCounts = countQuestionTypes(questions);
+  const allTypes = [
+    ...new Set([...Object.keys(requestedTypes), ...Object.keys(actualCounts)]),
+  ];
+  const distributionMismatch = allTypes.some(
+    (type) => (requestedTypes[type] || 0) !== (actualCounts[type] || 0)
+  );
+  const finalAdjustment = { ...(fallbackDistributionAdjustment || {}) };
+  finalAdjustment.requested = requestedTypes;
+  finalAdjustment.actual = actualCounts;
   if (Object.keys(missing).length) {
-    exam.meta.distributionAdjustment =
-      exam.meta.distributionAdjustment || {
-        requested: resolvedConfig?.types || {},
-        missing,
-        actual: countQuestionTypes(questions),
-      };
+    finalAdjustment.missing = missing;
   }
-  if (!strictTypes && scenarioShare?.deficit > 0) {
-    exam.meta.distributionAdjustment = exam.meta.distributionAdjustment || {};
-    exam.meta.distributionAdjustment.scenarioShare = scenarioShare;
+  if (duplicateRepairs.length) {
+    finalAdjustment.duplicateRepairs = duplicateRepairs;
+  }
+  if (duplicateWarnings.length) {
+    finalAdjustment.duplicateWarnings = duplicateWarnings;
+  }
+  const scenarioShareAdjustment = !strictTypes && scenarioShare?.deficit > 0;
+  if (scenarioShareAdjustment) {
+    finalAdjustment.scenarioShare = scenarioShare;
+  }
+  const shouldAttachAdjustment =
+    Boolean(fallbackDistributionAdjustment) ||
+    distributionMismatch ||
+    duplicateRepairs.length > 0 ||
+    duplicateWarnings.length > 0 ||
+    scenarioShareAdjustment;
+  if (shouldAttachAdjustment) {
+    exam.meta.distributionAdjustment = finalAdjustment;
   }
 
   return exam;

@@ -1,26 +1,66 @@
 import { requestJson } from "./api.js";
 import { showToast } from "./ui.js";
 
-const STORAGE_KEY = "saved-visuals";
+const IMAGES_INIT_FLAG = "__imagesFlowInitialized";
 
-const imagePrompt = document.getElementById("imagePrompt");
-const imageStyle = document.getElementById("imageStyle");
-const imageSize = document.getElementById("imageSize");
-const imageQuality = document.getElementById("imageQuality");
-const imageCanvas = document.getElementById("imageCanvas");
-const imageStatusText = document.getElementById("imageStatusText");
-const imageProviderBadge = document.getElementById("imageProviderBadge");
-const errorContainer = document.getElementById("imageError");
-const generateBtn = document.querySelector("[data-action=generate-image]");
-const cancelBtn = document.querySelector("[data-action=cancel-image-generation]");
+let imagePrompt = null;
+let imageStyle = null;
+let imageSize = null;
+let imageQuality = null;
+let generateBtn = null;
+let cancelBtn = null;
+let statusText = null;
+let providerBadge = null;
+let errorContainer = null;
+let previewImage = null;
+let previewPlaceholder = null;
+let downloadBtn = null;
+let copyBtn = null;
+let historyList = null;
 
 let isGenerating = false;
 let currentController = null;
-let cancelRequested = false;
-let latestImages = [];
-let latestMeta = null;
+let historyEntries = [];
 
-const defaultGenerateLabel = generateBtn?.textContent?.trim() || "Generate Visual";
+const findElement = (root, selector) => {
+  const el = root.querySelector(selector);
+  if (!el) {
+    console.error(`Missing element ${selector} in visual panel`);
+  }
+  return el;
+};
+
+const captureElements = () => {
+  const root = document.querySelector('[data-tab-panel="visual"]');
+  if (!root) return false;
+  imagePrompt = findElement(root, "#imagePrompt");
+  imageStyle = findElement(root, "#imageStyle");
+  imageSize = findElement(root, "#imageSize");
+  imageQuality = findElement(root, "#imageQuality");
+  generateBtn = findElement(root, "[data-action=generate-image]");
+  cancelBtn = findElement(root, "[data-action=cancel-image-generation]");
+  statusText = findElement(root, "#imageStatusText");
+  providerBadge = findElement(root, "#imageProviderBadge");
+  errorContainer = findElement(root, "#imageError");
+  previewImage = findElement(root, "#imagePreview");
+  previewPlaceholder = findElement(root, "#imagePlaceholder");
+  downloadBtn = findElement(root, "[data-action=download-image]");
+  copyBtn = findElement(root, "[data-action=copy-image]");
+  historyList = findElement(root, "#imageHistoryList");
+  return Boolean(
+    imagePrompt &&
+      imageStyle &&
+      imageSize &&
+      imageQuality &&
+      generateBtn &&
+      statusText &&
+      previewImage &&
+      downloadBtn &&
+      copyBtn &&
+      historyList &&
+      providerBadge
+  );
+};
 
 const escapeHtml = (value) =>
   String(value || "")
@@ -30,60 +70,27 @@ const escapeHtml = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
-const extractBase64FromDataUrl = (dataUrl) => {
-  const match = String(dataUrl || "").match(/^data:[^;]+;base64,(.+)$/);
-  return match ? match[1] : "";
-};
-
-const loadSavedVisuals = () => {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error(error);
-    return [];
-  }
-};
-
-const saveVisuals = (items) => {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-const renderPlaceholder = () => {
-  if (!imageCanvas) return;
-  setProviderBadge(null);
-  imageCanvas.innerHTML = `
-    <div class="empty-state">
-      <svg class="empty-state-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
-        <circle cx="8.5" cy="8.5" r="1.5" fill="none" stroke="currentColor" stroke-width="2" />
-        <polyline points="21 15 16 10 5 21" fill="none" stroke="currentColor" stroke-width="2" />
-      </svg>
-      <p class="empty-state-title">No visual yet</p>
-      <p class="empty-state-subtitle">Write a prompt and generate a visual to preview it here.</p>
-    </div>
-  `;
+const formatDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 };
 
 const setStatus = (text) => {
-  if (!imageStatusText) return;
-  imageStatusText.textContent = `Status: ${text}`;
+  if (!statusText) return;
+  statusText.textContent = `Status: ${text}`;
 };
 
 const setProviderBadge = (provider) => {
-  if (!imageProviderBadge) return;
+  if (!providerBadge) return;
   if (!provider) {
-    imageProviderBadge.hidden = true;
-    imageProviderBadge.textContent = "";
+    providerBadge.hidden = true;
+    providerBadge.textContent = "";
     return;
   }
-  imageProviderBadge.textContent = `Provider: ${provider}`;
-  imageProviderBadge.hidden = false;
+  providerBadge.textContent = `Provider: ${provider}`;
+  providerBadge.hidden = false;
 };
 
 const clearError = () => {
@@ -92,7 +99,7 @@ const clearError = () => {
   errorContainer.textContent = "";
 };
 
-const showInlineError = (message) => {
+const showError = (message) => {
   if (!errorContainer) return;
   errorContainer.textContent = message;
   errorContainer.hidden = !message;
@@ -102,234 +109,247 @@ const setLoadingState = (loading) => {
   isGenerating = Boolean(loading);
   if (generateBtn) {
     generateBtn.disabled = isGenerating;
-    generateBtn.textContent = isGenerating ? "Generating…" : defaultGenerateLabel;
+    generateBtn.textContent = isGenerating ? "Generating…" : "Generate Visual";
   }
   if (cancelBtn) {
     cancelBtn.hidden = !isGenerating;
   }
+  if (downloadBtn) downloadBtn.disabled = isGenerating;
+  if (copyBtn) copyBtn.disabled = isGenerating;
 };
 
-const bindTileActions = () => {
-  if (!imageCanvas) return;
-  imageCanvas.querySelectorAll("[data-image-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const action = button.dataset.imageAction;
-      const index = Number(button.dataset.index);
-      if (action === "save") {
-        handleSave(index);
-        return;
-      }
-      if (action === "copy") {
-        await handleCopy(index);
-      }
-    });
-  });
-};
-
-const handleSave = (index) => {
-  const candidate = latestImages[index];
-  if (!candidate || !latestMeta) {
-    showToast("Nothing to save yet", "error");
-    return;
+const resetPreview = () => {
+  if (previewImage) {
+    previewImage.hidden = true;
+    previewImage.removeAttribute("src");
   }
-    const entry = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      createdAt: new Date().toISOString(),
-      prompt: latestMeta.prompt,
-      usedPrompt: latestMeta.usedPrompt,
-      style: latestMeta.style,
-      size: latestMeta.size,
-      quality: latestMeta.quality,
-      mimeType: candidate.mimeType,
-      imageBase64: candidate.imageBase64 || candidate.b64,
-    };
-  const existing = loadSavedVisuals();
-  const next = [entry, ...existing].slice(0, 50);
-  saveVisuals(next);
-  showToast("Saved to history", "success");
-  window.dispatchEvent(new CustomEvent("library:updated"));
+  if (previewPlaceholder) {
+    previewPlaceholder.hidden = false;
+  }
+  setProviderBadge(null);
+  if (downloadBtn) downloadBtn.disabled = true;
+  if (copyBtn) copyBtn.disabled = true;
 };
 
-const handleCopy = async (index) => {
-  const candidate = latestImages[index];
-  if (!candidate || !latestMeta) {
-    showToast("Nothing to copy", "error");
-    return;
+const downloadImage = (src) => {
+  if (!src) return;
+  const link = document.createElement("a");
+  link.href = src;
+  link.download = "visual.png";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+const copyImageToClipboard = async (imageUrl) => {
+  if (!navigator.clipboard) {
+    throw new Error("Clipboard unavailable");
   }
-  const textToCopy = candidate.revisedPrompt || latestMeta.usedPrompt || latestMeta.prompt;
-  if (!textToCopy) {
-    showToast("Prompt is empty", "error");
+  try {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        [blob.type]: blob,
+      }),
+    ]);
+  } catch (error) {
+    throw error;
+  }
+};
+
+const handleCopyImage = async () => {
+  if (!previewImage || !previewImage.src) {
+    showToast("Generate an image first", "error");
     return;
   }
   try {
-    await navigator.clipboard.writeText(textToCopy);
-    showToast("Prompt copied", "success");
+    await copyImageToClipboard(previewImage.src);
+    showToast("Image copied to clipboard", "success");
   } catch (error) {
-    console.error(error);
-    showToast("Unable to copy", "error");
+    try {
+      await navigator.clipboard.writeText(previewImage.src);
+      showToast("Image URL copied instead", "success");
+    } catch (secondaryError) {
+      console.error(secondaryError);
+      showToast("Unable to copy image", "error");
+    }
   }
 };
 
-const renderImageGrid = (payload, originalPrompt) => {
-  if (!imageCanvas) return;
-  const usedPrompt = payload.usedPrompt || originalPrompt;
-  latestMeta = {
-    prompt: originalPrompt,
-    usedPrompt,
-    style: payload.style || "prompt-only",
-    size: payload.size || "1024x1024",
-    quality: payload.quality || "standard",
-  };
-
-  setProviderBadge(payload.provider || null);
-
-  latestImages = Array.isArray(payload.images)
-    ? payload.images
-        .map((image) => {
-          const dataUrl = String(image?.dataUrl || "");
-          if (!dataUrl) {
-            return null;
-          }
-          const base64 =
-            image.imageBase64 || image.b64 || extractBase64FromDataUrl(dataUrl);
-          const mimeType =
-            image.mimeType ||
-            dataUrl
-              .split(";")[0]
-              .replace("data:", "")
-              .trim() ||
-            "image/png";
-          return {
-            dataUrl,
-            mimeType,
-            imageBase64: base64,
-            b64: image.b64 || base64,
-            revisedPrompt: image.revisedPrompt || null,
-          };
-        })
-        .filter((image) => Boolean(image))
-    : [];
-
-  if (!latestImages.length) {
-    renderPlaceholder();
+const renderImage = (payload = {}, prompt = "") => {
+  if (!previewImage || !previewPlaceholder) return;
+  const imageUrl = payload.imageUrl || "";
+  if (!imageUrl) {
+    resetPreview();
     return;
   }
-
-  const tiles = latestImages
-    .map((image, index) => {
-      const promptText = escapeHtml(image.revisedPrompt || usedPrompt || "");
-      const styleLabel = escapeHtml(latestMeta.style);
-      const sizeLabel = escapeHtml(latestMeta.size);
-      const qualityLabel = escapeHtml(latestMeta.quality);
-      return `
-        <article class="visual-card" data-index="${index}">
-          <div class="visual-image-wrap">
-            <img
-              class="visual-image"
-              src="${escapeHtml(image.dataUrl)}"
-              alt="Generated visual ${index + 1}"
-              loading="lazy"
-            />
-          </div>
-          <div class="visual-meta">
-            <div class="visual-prompt">${promptText}</div>
-            <div class="visual-tags">
-              <span class="visual-tag">Style: ${styleLabel}</span>
-              <span class="visual-tag">Size: ${sizeLabel}</span>
-              <span class="visual-tag">Quality: ${qualityLabel}</span>
-            </div>
-            <div class="visual-actions">
-              <button type="button" class="btn secondary" data-image-action="save" data-index="${index}">
-                Save
-              </button>
-              <button type="button" class="btn ghost" data-image-action="copy" data-index="${index}">
-                Copy prompt
-              </button>
-            </div>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-
-  imageCanvas.innerHTML = `<div class="visual-grid">${tiles}</div>`;
-  bindTileActions();
+  previewImage.src = imageUrl;
+  previewImage.hidden = false;
+  previewPlaceholder.hidden = true;
+  setProviderBadge(payload.provider || null);
+  setStatus("Ready");
+  if (downloadBtn) downloadBtn.disabled = false;
+  if (copyBtn) copyBtn.disabled = false;
+  showToast("Visual generated", "success");
 };
 
-const generateVisuals = async () => {
-  if (!imagePrompt) return;
+const buildHistoryCard = (item) => {
+  const promptText = escapeHtml(item.usedPrompt || item.prompt || "");
+  const providerText = escapeHtml(item.provider || "Unknown");
+  const dateText = formatDate(item.createdAt);
+  return `
+    <article class="image-history-card" data-history-id="${escapeHtml(item.id)}">
+      <img src="${escapeHtml(item.imageUrl)}" alt="Generated visual" loading="lazy" />
+      <div class="visual-history-body">
+        <p>${promptText}</p>
+        <p class="helper-text">${providerText}${dateText ? ` · ${escapeHtml(dateText)}` : ""}</p>
+        <div class="image-history-actions">
+          <button type="button" class="btn ghost" data-history-action="load">View</button>
+          <button type="button" class="btn ghost" data-history-action="copy">Copy prompt</button>
+        </div>
+      </div>
+    </article>
+  `;
+};
+
+const renderHistory = (items = []) => {
+  historyEntries = items || [];
+  if (!historyList) return;
+  if (!items.length) {
+    historyList.innerHTML = `
+      <div class="empty-state empty-state--compact">
+        <p class="empty-state-title">No history yet</p>
+        <p class="empty-state-subtitle">Generate an image to build a history.</p>
+      </div>
+    `;
+    return;
+  }
+  historyList.innerHTML = items.map(buildHistoryCard).join("");
+};
+
+const fetchHistory = async () => {
+  if (!historyList) return;
+  try {
+    const result = await requestJson("/api/image/history", { cache: "no-store" });
+    if (Array.isArray(result)) {
+      renderHistory(result);
+    }
+  } catch (error) {
+    console.error("Failed to fetch image history", error);
+  }
+};
+
+const handleHistoryAction = async (event) => {
+  const button = event.target.closest("[data-history-action]");
+  if (!button) return;
+  const card = button.closest("[data-history-id]");
+  const historyId = card?.dataset.historyId;
+  const action = button.dataset.historyAction;
+  const entry = historyEntries.find((item) => String(item.id) === String(historyId));
+  if (!entry) return;
+  if (action === "load") {
+    renderImage(entry, entry.prompt);
+    showToast("Loaded from history", "neutral");
+  }
+  if (action === "copy") {
+    const promptToCopy = entry.usedPrompt || entry.prompt || "";
+    if (!promptToCopy) {
+      showToast("Prompt is empty", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(promptToCopy);
+      showToast("Prompt copied", "success");
+    } catch (error) {
+      console.error(error);
+      showToast("Unable to copy prompt", "error");
+    }
+  }
+};
+
+const handleGenerate = async () => {
   if (isGenerating) return;
-  const promptValue = String(imagePrompt.value || "").trim();
-  if (!promptValue) {
+  if (!imagePrompt) return;
+  const prompt = String(imagePrompt.value || "").trim();
+  if (!prompt) {
     showToast("Enter a prompt first", "error");
     return;
   }
-
   clearError();
   setProviderBadge(null);
-  setLoadingState(true);
   setStatus("Generating…");
-  cancelRequested = false;
-
+  setLoadingState(true);
   const controller = new AbortController();
+  if (currentController) {
+    currentController.abort();
+  }
   currentController = controller;
 
-  try {
-    const payload = {
-      prompt: promptValue,
-      style: imageStyle?.value || "prompt-only",
-      size: imageSize?.value || "1024x1024",
-      quality: imageQuality?.value || "standard",
-      format: "png",
-      n: 4,
-    };
+  const payload = {
+    prompt,
+    style: imageStyle?.value || "prompt-only",
+    size: imageSize?.value || "1024x1024",
+    quality: imageQuality?.value || "standard",
+    format: "png",
+    n: 1,
+  };
 
-    const result = await requestJson("/api/images/generate", {
+  try {
+    const result = await requestJson("/api/image/generate", {
       method: "POST",
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
-
-    renderImageGrid(result, promptValue);
-    setStatus("Ready");
-    showToast("Visual generated", "success");
+    renderImage(result, prompt);
+    await fetchHistory();
   } catch (error) {
-    if (cancelRequested) {
-      setStatus("Canceled");
-      showToast("Generation canceled", "neutral");
-    } else {
-      const message =
-        error?.data?.error?.message || error?.message || "Failed to generate visual";
-      setStatus("Error");
-      setProviderBadge(null);
-      showInlineError(message);
-      showToast(message, "error");
+    if (error.name === "ApiError" && error.status === 408) {
+      setStatus("Timed out");
+      showToast("Image request timed out", "error");
+      return;
     }
+    const message =
+      error?.data?.message || error?.message || "Failed to generate visual";
+    showError(message);
+    setStatus("Error");
+    showToast(message, "error");
   } finally {
     setLoadingState(false);
     currentController = null;
-    cancelRequested = false;
   }
 };
 
 const handleCancel = () => {
   if (!currentController || !isGenerating) return;
-  cancelRequested = true;
   currentController.abort();
   setStatus("Canceling…");
 };
 
 const bindEvents = () => {
-  generateBtn?.addEventListener("click", generateVisuals);
+  generateBtn?.addEventListener("click", handleGenerate);
   cancelBtn?.addEventListener("click", handleCancel);
+  downloadBtn?.addEventListener("click", () => {
+    if (previewImage?.src) {
+      downloadImage(previewImage.src);
+    } else {
+      showToast("Generate an image first", "error");
+    }
+  });
+  copyBtn?.addEventListener("click", handleCopyImage);
+  historyList?.addEventListener("click", handleHistoryAction);
 };
 
 const initImagesFlow = () => {
+  if (window[IMAGES_INIT_FLAG]) return;
+  if (!captureElements()) return;
+  window[IMAGES_INIT_FLAG] = true;
   setStatus("Idle");
   setLoadingState(false);
   clearError();
-  renderPlaceholder();
+  resetPreview();
   bindEvents();
+  fetchHistory();
 };
 
 export { initImagesFlow };

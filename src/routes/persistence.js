@@ -3,7 +3,8 @@ const { randomUUID } = require("crypto");
 const PDFDocument = require("pdfkit");
 const { Document, Packer, Paragraph, TextRun } = require("docx");
 const { AppError } = require("../middleware/errorHandler");
-const { db } = require("../db");
+const { db, runInTransaction } = require("../db");
+const persistenceService = require("../services/persistenceService");
 
 const router = express.Router();
 
@@ -39,18 +40,20 @@ router.post("/saved", async (req, res, next) => {
       throw new AppError("Run not found.", 404, "NOT_FOUND");
     }
     const savedId = randomUUID();
-    db.prepare(
-      `INSERT INTO saved_items (id, documentId, runId, title, tagsJson, folder, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      savedId,
-      run.documentId || null,
-      runId,
-      title || "Saved summary",
-      JSON.stringify(Array.isArray(tags) ? tags : []),
-      folder || "default",
-      new Date().toISOString()
-    );
+    runInTransaction((transactionalDb) => {
+      transactionalDb.prepare(
+        `INSERT INTO saved_items (id, documentId, runId, title, tagsJson, folder, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        savedId,
+        run.documentId || null,
+        runId,
+        title || "Saved summary",
+        JSON.stringify(Array.isArray(tags) ? tags : []),
+        folder || "default",
+        new Date().toISOString()
+      );
+    });
     res.json({
       id: savedId,
       runId,
@@ -102,30 +105,32 @@ router.get("/saved", (req, res, next) => {
   }
 });
 
-router.get("/runs/:id", (req, res, next) => {
+const handleGetRun = (req, res, next) => {
   try {
     const { id } = req.params;
-    const run = db.prepare("SELECT * FROM runs WHERE id = ?").get(id);
+    const run = persistenceService.getRunById(id);
     if (!run) {
       throw new AppError("Run not found.", 404, "NOT_FOUND");
     }
-    const storedOutput = parseJson(run.outputJson);
-    const runParams = parseJson(run.paramsJson) || {};
     res.json({
       id: run.id,
       tool: run.tool,
+      type: run.type,
       provider: run.provider,
       model: run.model,
-      params: runParams,
-      inputText: runParams?.inputText || "",
-      output: storedOutput?.output || null,
-      highlights: storedOutput?.highlights || [],
+      params: run.params,
+      inputText: run.params?.inputText || "",
+      output: run.output,
+      highlights: run.highlights,
       createdAt: run.createdAt,
     });
   } catch (error) {
     next(error);
   }
-});
+};
+
+router.get("/runs/:id", handleGetRun);
+router.get("/persistence/runs/:id", handleGetRun);
 
 router.post("/share", (req, res, next) => {
   try {
@@ -142,10 +147,12 @@ router.post("/share", (req, res, next) => {
       typeof ttlHours === "number" && ttlHours > 0
         ? new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString()
         : null;
-    db.prepare(
-      `INSERT INTO share_links (id, runId, token, expiresAt, createdAt)
-       VALUES (?, ?, ?, ?, ?)`
-    ).run(randomUUID(), runId, token, expiresAt, new Date().toISOString());
+    runInTransaction((transactionalDb) => {
+      transactionalDb.prepare(
+        `INSERT INTO share_links (id, runId, token, expiresAt, createdAt)
+         VALUES (?, ?, ?, ?, ?)`
+      ).run(randomUUID(), runId, token, expiresAt, new Date().toISOString());
+    });
     res.json({
       token,
       url: `/s/${token}`,

@@ -207,13 +207,13 @@
 }
 
 .page-view {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.page-view.active {
-  display: flex;
+.tab-panel[hidden] {
+  display: none !important;
 }
 
 .page-heading {
@@ -554,6 +554,11 @@ textarea {
   background: rgba(37, 99, 235, 0.08);
   color: var(--color-blue);
   font-weight: 600;
+}
+
+.status-note--error {
+  background: rgba(248, 113, 113, 0.14);
+  color: var(--color-red);
 }
 
 .alert {

@@ -701,8 +701,8 @@ Next sentence`;
         .send({ url: `https://www.youtube.com/watch?v=${videoId}` })
         .expect(502);
 
-      expect(response.body.error.code).toBe("YOUTUBE_TRANSCRIPT_BLOCKED");
-      expect(response.body.error.details?.reason).toBe("unexpected_html");
+      expect(response.body.code).toBe("YOUTUBE_TRANSCRIPT_BLOCKED");
+      expect(response.body.details?.reason).toBe("unexpected_html");
     } finally {
       if (originalFetch) {
         global.fetch = originalFetch;
@@ -728,8 +728,8 @@ Next sentence`;
         .send({ url: "https://youtu.be/dQw4w9WgXcQ" })
         .expect(422);
 
-      expect(response.body.error.code).toBe("TRANSCRIPT_UNAVAILABLE");
-      expect(response.body.error.message).toMatch(/No transcript found/);
+      expect(response.body.code).toBe("TRANSCRIPT_UNAVAILABLE");
+      expect(response.body.message).toMatch(/No transcript found/);
     } finally {
       if (originalFetch) {
         global.fetch = originalFetch;
@@ -748,11 +748,11 @@ Next sentence`;
         expect(response.body.text.length).toBeGreaterThan(1000);
       } else {
         if (response.status === 422) {
-          expect(response.body.error.code).toBe("TRANSCRIPT_UNAVAILABLE");
-          expect(response.body.error.details?.reason).toBe("fetch_blocked");
+          expect(response.body.code).toBe("TRANSCRIPT_UNAVAILABLE");
+          expect(response.body.details?.reason).toBe("fetch_blocked");
         } else {
-          expect(response.body.error.code).toBe("YOUTUBE_TRANSCRIPT_BLOCKED");
-          expect(response.body.error.details?.reason).toBeDefined();
+          expect(response.body.code).toBe("YOUTUBE_TRANSCRIPT_BLOCKED");
+          expect(response.body.details?.reason).toBeDefined();
         }
       }
   });
@@ -761,10 +761,9 @@ Next sentence`;
     const response = await request(app).post("/api/inputs/ocr").expect(501);
 
     expect(response.body).toEqual({
-      error: {
-        code: "NOT_IMPLEMENTED",
-        message: expect.stringContaining("OCR"),
-      },
+      error: true,
+      code: "NOT_IMPLEMENTED",
+      message: expect.stringContaining("OCR"),
     });
   });
 
@@ -772,10 +771,9 @@ Next sentence`;
     const response = await request(app).post("/api/inputs/audio").expect(501);
 
     expect(response.body).toEqual({
-      error: {
-        code: "NOT_IMPLEMENTED",
-        message: expect.stringContaining("Audio transcription"),
-      },
+      error: true,
+      code: "NOT_IMPLEMENTED",
+      message: expect.stringContaining("Audio transcription"),
     });
   });
 });

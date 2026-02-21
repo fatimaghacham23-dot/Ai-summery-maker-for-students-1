@@ -1,5 +1,5 @@
 const IMAGE_STYLES = ["prompt-only", "photoreal", "anime", "sketch", "3d", "icon"];
-const IMAGE_SIZE_OPTIONS = ["512x512", "1024x1024", "1536x1024"];
+const IMAGE_SIZE_OPTIONS = ["1024x1024", "1024x1536", "1536x1024"];
 const IMAGE_QUALITIES = ["standard", "high"];
 const IMAGE_FORMATS = ["png", "jpeg", "webp"];
 

@@ -2,8 +2,8 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { z } = require("zod");
 
-const { AppError } = require("../middleware/errorHandler");
 const imageService = require("../../server/services/imageService");
+const { AppError } = require("../middleware/errorHandler");
 const {
   IMAGE_STYLES,
   IMAGE_SIZE_OPTIONS,
@@ -22,10 +22,9 @@ const limiter =
         standardHeaders: true,
         legacyHeaders: false,
         message: {
-          error: {
-            code: "RATE_LIMITED",
-            message: "Too many requests, please try again later.",
-          },
+          error: true,
+          code: "RATE_LIMITED",
+          message: "Too many requests, please try again later.",
         },
       });
 
@@ -35,7 +34,7 @@ const imageSchema = z.object({
   size: z.enum(IMAGE_SIZE_OPTIONS).optional().default("1024x1024"),
   quality: z.enum(IMAGE_QUALITIES).optional().default("standard"),
   format: z.enum(IMAGE_FORMATS).optional().default("png"),
-  n: z.number().int().min(1).max(4).optional().default(4),
+  n: z.number().int().min(1).max(4).optional().default(1),
 });
 
 const handleValidation = (schema, data) => {
@@ -47,40 +46,23 @@ const handleValidation = (schema, data) => {
   return result.data;
 };
 
-const MIN_DATA_URL_LENGTH = 50 * 1024;
-
-const assertImagePayload = (payload) => {
-  if (payload.provider !== "huggingface") {
-    throw new AppError("Invalid image payload", 502, "invalid-image-payload");
-  }
-
-  if (!Array.isArray(payload.images) || payload.images.length === 0) {
-    throw new AppError("Invalid image payload", 502, "invalid-image-payload");
-  }
-
-  payload.images.forEach((image) => {
-    const dataUrl = String(image?.dataUrl || "");
-
-    if (!dataUrl.startsWith("data:image/")) {
-      throw new AppError("Invalid image payload", 502, "invalid-image-payload");
-    }
-
-    if (dataUrl.length <= MIN_DATA_URL_LENGTH) {
-      throw new AppError("Invalid image payload", 502, "invalid-image-payload");
-    }
-  });
-};
-
-router.post("/images/generate", limiter, async (req, res, next) => {
+router.post("/image/generate", limiter, async (req, res, next) => {
   try {
-    const payload = handleValidation(imageSchema, req.body || {});
+    const payload = handleValidation(imageSchema, req.body);
     payload.prompt = String(payload.prompt || "").trim();
     if (payload.prompt.length < 3) {
       throw new AppError("Prompt must be at least 3 characters.", 400, "VALIDATION_ERROR");
     }
-    const result = await imageService.generateImages(payload);
-    assertImagePayload(result);
+    const result = await imageService.generateImage(payload);
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/image/history", async (req, res, next) => {
+  try {
+    res.json(imageService.getHistory());
   } catch (error) {
     next(error);
   }

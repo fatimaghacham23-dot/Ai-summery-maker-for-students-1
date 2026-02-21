@@ -90,7 +90,7 @@ const requestJson = async (path, options = {}) => {
 
     if (!response.ok) {
       const message =
-        data?.error?.message || data?.reason || response.statusText || "Request failed";
+        data?.message || data?.error?.message || data?.reason || response.statusText || "Request failed";
       throw new ApiError(message, response.status, data);
     }
 

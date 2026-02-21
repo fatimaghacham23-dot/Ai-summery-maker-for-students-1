@@ -44,7 +44,7 @@
       </div>
 
       <nav class="header-nav-pill" aria-label="Workspace navigation">
-        <button type="button" class="nav-link" data-nav-target="summary">
+        <button type="button" class="nav-link" data-tab="summary" data-nav-target="summary">
           <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path
               d="M8 4h7l3 3v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
@@ -70,7 +70,7 @@
           </svg>
           <span class="nav-label">Summary</span>
         </button>
-        <button type="button" class="nav-link" data-nav-target="exam">
+        <button type="button" class="nav-link" data-tab="exam" data-nav-target="exam">
           <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path
               d="M3 7l9-4 9 4-9 4-9-4Z"
@@ -96,7 +96,73 @@
           </svg>
           <span class="nav-label">Exam</span>
         </button>
-        <button type="button" class="nav-link" data-nav-target="images">
+        <button type="button" class="nav-link" data-tab="writer" data-nav-target="writer">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M5 19v-3l9-9 3 3-9 9H5z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M13 7l4 4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="nav-label">Writer</span>
+        </button>
+        <button type="button" class="nav-link" data-tab="grammar" data-nav-target="grammar">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <polyline
+              points="6 20 12 4 18 20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <line
+              x1="8"
+              y1="14"
+              x2="16"
+              y2="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <circle cx="12" cy="17" r="1.2" fill="currentColor" />
+          </svg>
+          <span class="nav-label">Grammar Fixer</span>
+        </button>
+        <button type="button" class="nav-link" data-tab="song" data-nav-target="song">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M17 3v11.12a3 3 0 1 0 1 0V7h4V3h-5z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle cx="9" cy="16" r="3" fill="none" stroke="currentColor" stroke-width="2" />
+            <path
+              d="M9 19v-8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="nav-label">Song</span>
+        </button>
+        <button type="button" class="nav-link" data-tab="visual" data-nav-target="visual">
           <svg
             class="nav-icon"
             viewBox="0 0 24 24"
@@ -125,7 +191,7 @@
     <div class="shell-body">
       <aside class="sidebar" aria-label="Primary navigation">
         <nav>
-          <button type="button" class="nav-link nav-link--mobile" data-nav-target="summary">
+          <button type="button" class="nav-link nav-link--mobile" data-tab="summary" data-nav-target="summary">
         <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path
             d="M8 4h7l3 3v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
@@ -151,7 +217,7 @@
         </svg>
         <span class="nav-label">Summary</span>
           </button>
-          <button type="button" class="nav-link nav-link--mobile" data-nav-target="exam">
+          <button type="button" class="nav-link nav-link--mobile" data-tab="exam" data-nav-target="exam">
         <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path
             d="M3 7l9-4 9 4-9 4-9-4Z"
@@ -177,7 +243,73 @@
         </svg>
         <span class="nav-label">Exam</span>
           </button>
-          <button type="button" class="nav-link nav-link--rail" data-nav-target="history">
+          <button type="button" class="nav-link nav-link--mobile" data-tab="writer" data-nav-target="writer">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M5 19v-3l9-9 3 3-9 9H5z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M13 7l4 4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="nav-label">Writer</span>
+          </button>
+          <button type="button" class="nav-link nav-link--mobile" data-tab="grammar" data-nav-target="grammar">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <polyline
+            points="6 20 12 4 18 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <line
+            x1="8"
+            y1="14"
+            x2="16"
+            y2="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+          <circle cx="12" cy="17" r="1.2" fill="currentColor" />
+        </svg>
+        <span class="nav-label">Grammar Fixer</span>
+          </button>
+          <button type="button" class="nav-link nav-link--mobile" data-tab="song" data-nav-target="song">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M17 3v11.12a3 3 0 1 0 1 0V7h4V3h-5z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="9" cy="16" r="3" fill="none" stroke="currentColor" stroke-width="2" />
+          <path
+            d="M9 19v-8"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span class="nav-label">Song</span>
+          </button>
+          <button type="button" class="nav-link nav-link--rail" data-tab="history" data-nav-target="history">
         <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path
             d="M12 8v5l3 2"
@@ -205,7 +337,7 @@
         </svg>
         <span class="nav-label">History</span>
           </button>
-          <button type="button" class="nav-link nav-link--mobile" data-nav-target="images">
+          <button type="button" class="nav-link nav-link--mobile" data-tab="visual" data-nav-target="visual">
         <svg
           class="nav-icon"
           viewBox="0 0 24 24"
@@ -232,7 +364,7 @@
       </aside>
 
       <main class="content-area" id="mainContent">
-        <section class="page-view summary-view active" data-view="summary">
+        <section id="summary-panel" class="tab-panel page-view summary-view active" data-view="summary" data-tab-panel="summary">
           <div class="page-heading">
             <div>
               <p class="breadcrumbs">Summary</p>
@@ -397,7 +529,7 @@
           </div>
         </section>
 
-        <section class="page-view images-view" data-view="images">
+        <section id="visual-panel" class="tab-panel page-view images-view" data-view="images" data-tab-panel="visual" hidden>
           <div class="page-heading">
             <div>
               <p class="breadcrumbs">Workspace / Visuals</p>
@@ -434,8 +566,8 @@
                   <div class="form-field">
                     <label for="imageSize">Size</label>
                     <select id="imageSize">
-                      <option value="512x512">512×512</option>
                       <option value="1024x1024" selected>1024×1024</option>
+                      <option value="1024x1536">1024×1536</option>
                       <option value="1536x1024">1536×1024</option>
                     </select>
                   </div>
@@ -471,22 +603,45 @@
                   <p class="status-note">Your generated visual will appear here.</p>
                 </div>
               </div>
-              <div class="preview-content" id="imageCanvas">
-                <div class="empty-state">
+              <div class="preview-content image-preview-shell" id="imageCanvas">
+                <div class="empty-state" id="imagePlaceholder">
                   <svg class="empty-state-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
                     <circle cx="8.5" cy="8.5" r="1.5" fill="none" stroke="currentColor" stroke-width="2" />
                     <polyline points="21 15 16 10 5 21" fill="none" stroke="currentColor" stroke-width="2" />
                   </svg>
                   <p class="empty-state-title">No visual yet</p>
-                  <p class="empty-state-subtitle">Write a prompt and generate a visual to preview it here.</p>
+                  <p class="empty-state-subtitle">Your generated image will appear here.</p>
+                </div>
+                <img
+                  id="imagePreview"
+                  class="image-preview"
+                  alt="Generated visual"
+                  loading="lazy"
+                  hidden
+                />
+              </div>
+              <div class="image-action-row">
+                <button type="button" class="btn secondary" data-action="download-image" disabled>Download</button>
+                <button type="button" class="btn ghost" data-action="copy-image" disabled>Copy image</button>
+              </div>
+              <div class="image-history-panel" aria-live="polite" data-empty-history>
+                <div class="image-history-header">
+                  <p class="helper-text">History</p>
+                  <p class="status-note">Recent generations</p>
+                </div>
+                <div id="imageHistoryList" class="image-history-list">
+                  <div class="empty-state empty-state--compact">
+                    <p class="empty-state-title">No history yet</p>
+                    <p class="empty-state-subtitle">Your past prompts will appear here.</p>
+                  </div>
                 </div>
               </div>
             </section>
           </div>
         </section>
 
-        <section class="page-view exam-view" data-view="exam">
+        <section id="exam-panel" class="tab-panel page-view exam-view" data-view="exam" data-tab-panel="exam" hidden>
           <div class="page-heading">
             <div>
               <p class="breadcrumbs">Workspace / Exam Maker</p>
@@ -637,7 +792,429 @@
           </div>
         </section>
 
-        <section class="page-view history-view" data-view="history">
+        <section id="song-panel" class="tab-panel page-view song-view" data-view="song" data-tab-panel="song" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="breadcrumbs">Workspace / Song Generator</p>
+              <h2>Song Generator</h2>
+              <p class="helper-text">Describe the scene, mood, or story and we’ll craft original lyrics.</p>
+            </div>
+            <div class="chip">Song</div>
+          </div>
+          <div class="song-grid">
+            <div class="song-sidebar">
+              <section class="card song-controls">
+                <h3>Song prompt</h3>
+                <div class="form-field">
+                  <label for="songPrompt">Prompt</label>
+                  <textarea
+                    id="songPrompt"
+                    rows="5"
+                    placeholder="Describe the emotion, story, or scene you want."
+                  ></textarea>
+                  <p class="helper-text">Focus on imagery, chorus hooks, or narrative cues.</p>
+                </div>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="songGenre">Genre</label>
+                    <select id="songGenre">
+                      <option value="pop">Pop</option>
+                      <option value="rock">Rock</option>
+                      <option value="hip-hop">Hip-Hop</option>
+                      <option value="r&b">R&B</option>
+                      <option value="electronic">Electronic</option>
+                      <option value="indie">Indie</option>
+                      <option value="country">Country</option>
+                      <option value="folk">Folk</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="songStructure">Structure</label>
+                    <select id="songStructure">
+                      <option value="verse-chorus">Verse / Chorus</option>
+                      <option value="verse-chorus-bridge">Verse / Chorus / Bridge</option>
+                      <option value="story">Story</option>
+                      <option value="loop">Loop</option>
+                      <option value="freeform">Freeform</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="songLength">Length</label>
+                    <select id="songLength">
+                      <option value="short">Short</option>
+                      <option value="medium" selected>Medium</option>
+                      <option value="long">Long</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="songMood">Mood</label>
+                    <input id="songMood" type="text" placeholder="e.g. hopeful, dark, calm" />
+                  </div>
+                  <div class="form-field">
+                    <label for="songLanguage">Language</label>
+                    <input id="songLanguage" type="text" placeholder="English" />
+                  </div>
+                </div>
+                <div class="song-toggle-row">
+                  <label class="checkbox-field">
+                    <input id="songExplicit" type="checkbox" />
+                    <span>Allow explicit language</span>
+                  </label>
+                  <label class="checkbox-field">
+                    <input id="songIncludeChords" type="checkbox" />
+                    <span>Suggest chords</span>
+                  </label>
+                  <label class="checkbox-field">
+                    <input id="songIncludeTitleIdeas" type="checkbox" />
+                    <span>Include title ideas</span>
+                  </label>
+                </div>
+                <div class="song-actions">
+                  <div class="song-refine">
+                    <select id="songRefineInstruction">
+                      <option value="clarity">Clarify imagery</option>
+                      <option value="imagery">Boost imagery</option>
+                      <option value="energy">Increase energy</option>
+                      <option value="structure">Tighten structure</option>
+                    </select>
+                    <button type="button" class="btn ghost" id="songRefineBtn">Refine</button>
+                  </div>
+                  <button type="button" class="btn primary" id="songGenerateBtn">Generate</button>
+                </div>
+              </section>
+
+              <section class="card song-advanced">
+                <details>
+                  <summary>Advanced options</summary>
+                  <div class="form-grid">
+                    <div class="form-field">
+                      <label for="songRhymeScheme">Rhyme scheme</label>
+                      <input id="songRhymeScheme" type="text" placeholder="e.g. AABB" />
+                    </div>
+                    <div class="form-field">
+                      <label for="songSyllables">Syllables per line</label>
+                      <input id="songSyllables" type="number" min="1" placeholder="8" />
+                    </div>
+                    <div class="form-field">
+                      <label for="songReferenceArtists">Reference artists</label>
+                      <input
+                        id="songReferenceArtists"
+                        type="text"
+                        placeholder="Comma-separated vibe cues"
+                      />
+                    </div>
+                  </div>
+                </details>
+              </section>
+
+              <section class="card song-history">
+                <h3>Song history</h3>
+                <p class="helper-text">Load a previous run or keep exploring.</p>
+                <ul id="songHistoryList" class="history-list" aria-live="polite"></ul>
+                <p class="helper-text" id="songHistoryPlaceholder">No songs generated yet.</p>
+              </section>
+            </div>
+
+            <section class="card song-output" role="region" aria-live="polite">
+              <div class="preview-toolbar">
+                <div>
+                  <p class="helper-text">Output</p>
+                  <p class="status-note" id="songStatusNote">Ready</p>
+                </div>
+                <div class="toolbar-actions song-output-actions">
+                  <span class="song-wordcount" id="songWordCount">0 words</span>
+                  <button type="button" class="btn ghost" id="songCopyBtn">Copy</button>
+                  <button type="button" class="btn ghost" id="songDownloadBtn">Download .txt</button>
+                </div>
+              </div>
+              <div class="song-output-display">
+                <h3 class="song-title" id="songResultTitle">Song title will appear here</h3>
+                <pre id="songResultLyrics" class="song-lyrics"></pre>
+                <div id="songTitleIdeas" class="song-title-ideas" hidden>
+                  <p class="helper-text">Title ideas</p>
+                  <ul id="songTitleIdeasList"></ul>
+                </div>
+              </div>
+              <div class="song-output-actions song-output-actions--secondary">
+                <button type="button" class="btn secondary" id="songSaveBtn">Save</button>
+                <button type="button" class="btn secondary" id="songShareBtn">Share</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="writer-panel" class="tab-panel page-view writer-view" data-view="writer" data-tab-panel="writer" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="breadcrumbs">Workspace / Writer Studio</p>
+              <h2>Writer Studio</h2>
+              <p class="helper-text">Draft essays, outlines, flashcards, and study guides with AI assistance.</p>
+            </div>
+            <div class="chip">AI Writer</div>
+          </div>
+          <div class="writer-grid">
+            <div class="writer-sidebar">
+              <section class="card writer-controls">
+              <h3>Controls</h3>
+              <div class="form-field">
+                <label for="writerMode">Mode</label>
+                <select id="writerMode">
+                  <option value="essay">Essay</option>
+                  <option value="outline">Outline</option>
+                  <option value="paraphrase">Paraphrase</option>
+                  <option value="expand">Expand</option>
+                  <option value="shorten">Shorten</option>
+                  <option value="explain">Explain</option>
+                  <option value="flashcards">Flashcards</option>
+                  <option value="email">Email</option>
+                  <option value="cover-letter">Cover Letter</option>
+                  <option value="notes-to-study-guide">Notes-to-Study-Guide</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="writerTone">Tone</label>
+                <select id="writerTone">
+                  <option value="academic">Academic</option>
+                  <option value="neutral" selected>Neutral</option>
+                  <option value="simple">Simple</option>
+                  <option value="persuasive">Persuasive</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="writerLength">Length</label>
+                <select id="writerLength">
+                  <option value="short">Short</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="long">Long</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="writerLevel">Level</label>
+                <select id="writerLevel">
+                  <option value="high_school">High School</option>
+                  <option value="bachelor" selected>Bachelor</option>
+                  <option value="master">Master</option>
+                  <option value="phd">PhD</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="writerCitation">Citation style</label>
+                <select id="writerCitation">
+                  <option value="none" selected>None</option>
+                  <option value="apa">APA</option>
+                  <option value="mla">MLA</option>
+                  <option value="chicago">Chicago</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="writerKeywords">Keywords</label>
+                <input id="writerKeywords" type="text" placeholder="Comma-separated keywords" />
+                <p class="helper-text">Optional keywords that should appear in the output.</p>
+              </div>
+              </section>
+
+              <section class="card writer-config" id="writerConfigCard" hidden>
+                <h3>Configure OpenAI</h3>
+                <p class="helper-text">Development only · saves to <code>.local.settings.json</code></p>
+                <div class="form-field">
+                  <label for="writerConfigApiKey">OpenAI API key</label>
+                  <input
+                    id="writerConfigApiKey"
+                    type="password"
+                    autocomplete="new-password"
+                    placeholder="sk-..."
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="writerConfigModel">Model (optional)</label>
+                  <input
+                    id="writerConfigModel"
+                    type="text"
+                    placeholder="e.g. gpt-4o-mini"
+                  />
+                  <p class="helper-text">Leaving this blank uses the default writer model.</p>
+                </div>
+                <button type="button" class="btn primary" id="writerConfigSaveBtn">Save</button>
+              </section>
+
+              <section class="card writer-input">
+              <div class="form-field">
+                <label for="writerInput">Your notes / prompt</label>
+                <textarea
+                  id="writerInput"
+                  placeholder="Paste notes, notes-to-essay prompts, or study questions..."
+                ></textarea>
+              </div>
+              <p class="helper-text" id="writerCounters">0 chars · 0 est. tokens</p>
+              <div class="inline-actions writer-inlines">
+                <button type="button" class="btn primary" id="writerGenerateBtn">Generate</button>
+                <div class="writer-refine">
+                  <select id="writerRefineInstruction">
+                    <option value="clarity">Improve clarity</option>
+                    <option value="academic">More academic</option>
+                    <option value="structure">Add structure</option>
+                    <option value="concise">Make concise</option>
+                  </select>
+                  <button type="button" class="btn ghost" id="writerRefineBtn">Refine</button>
+                </div>
+                <button type="button" class="btn ghost" id="writerClearBtn">Clear</button>
+              </div>
+              </section>
+            </div>
+
+            <section class="card chat-surface writer-output" role="region" aria-live="polite">
+              <div class="preview-toolbar">
+                <div>
+                  <p class="helper-text">Output</p>
+                  <p class="status-note" id="writerStatusNote">Ready</p>
+                </div>
+                <div class="toolbar-actions writer-output-actions">
+                  <span class="writer-wordcount" id="writerWordCount">0 words</span>
+                  <button type="button" class="btn ghost" id="writerCopyBtn">Copy</button>
+                  <button type="button" class="btn ghost" id="writerDownloadTxtBtn">Download .txt</button>
+                  <button type="button" class="btn ghost" id="writerDownloadMdBtn">Download .md</button>
+                  <button type="button" class="btn ghost" id="writerShareBtn">Share</button>
+                </div>
+              </div>
+              <div class="preview-content writer-output-display" id="writer-output"></div>
+              <div class="writer-output-actions writer-output-actions--secondary">
+                <button type="button" class="btn secondary" id="writerSaveBtn">Save</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="grammar-panel" class="tab-panel page-view grammar-view" data-view="grammar" data-tab-panel="grammar" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="breadcrumbs">Workspace / Grammar Fixer</p>
+              <h2>Grammar Fixer</h2>
+              <p class="helper-text">Paste text, tune tone and formality, and fix grammar without losing your meaning.</p>
+            </div>
+            <div class="chip">Grammar</div>
+          </div>
+          <div class="grammar-grid">
+            <div class="grammar-sidebar">
+              <section class="card grammar-controls">
+                <h3>Controls</h3>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="grammarGoal">Goal</label>
+                    <select id="grammarGoal">
+                      <option value="grammar" selected>Grammar only</option>
+                      <option value="clarity">Clarity</option>
+                      <option value="formal">Formal tone</option>
+                      <option value="friendly">Friendly tone</option>
+                      <option value="concise">Concise</option>
+                      <option value="academic">Academic tone</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="grammarTone">Tone</label>
+                    <select id="grammarTone">
+                      <option value="neutral" selected>Neutral</option>
+                      <option value="formal">Formal</option>
+                      <option value="friendly">Friendly</option>
+                      <option value="professional">Professional</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="grammarDialect">Dialect</label>
+                    <select id="grammarDialect">
+                      <option value="US" selected>US English</option>
+                      <option value="UK">UK English</option>
+                      <option value="CA">Canadian English</option>
+                      <option value="AU">Australian English</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="grammarLevel">Level</label>
+                    <select id="grammarLevel">
+                      <option value="light">Light</option>
+                      <option value="standard" selected>Standard</option>
+                      <option value="strict">Strict</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="grammar-toggle-row">
+                  <label class="checkbox-field">
+                    <input id="grammarPreserveMeaning" type="checkbox" checked />
+                    <span>Preserve meaning</span>
+                  </label>
+                  <label class="checkbox-field">
+                    <input id="grammarPreserveFormatting" type="checkbox" checked />
+                    <span>Preserve formatting</span>
+                  </label>
+                  <label class="checkbox-field">
+                    <input id="grammarExplainChanges" type="checkbox" />
+                    <span>Explain changes</span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="card grammar-input">
+                <div class="form-field">
+                  <label for="grammarInput">Your text</label>
+                  <textarea
+                    id="grammarInput"
+                    rows="8"
+                    placeholder="Paste the paragraph, notes, or draft you want polished..."
+                  ></textarea>
+                  <p class="helper-text">Focus on the section you need to polish.</p>
+                </div>
+                <div class="inline-actions grammar-inline">
+                  <button type="button" class="btn primary" id="grammarFixBtn">Fix Grammar</button>
+                  <div class="grammar-refine">
+                    <input
+                      id="grammarRefineInstruction"
+                      type="text"
+                      placeholder="Refine instruction (e.g. be more concise)"
+                    />
+                    <button type="button" class="btn ghost" id="grammarRefineBtn">Refine</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card grammar-history">
+                <h3>History</h3>
+                <p class="helper-text">Load a recent run to continue refining.</p>
+                <ul id="grammarHistoryList" class="history-list" aria-live="polite"></ul>
+                <p class="helper-text" id="grammarHistoryPlaceholder">No grammar runs yet.</p>
+              </section>
+            </div>
+
+            <section class="card grammar-output" role="region" aria-live="polite">
+              <div class="preview-toolbar">
+                <div>
+                  <p class="helper-text">Corrected text</p>
+                  <p class="status-note" id="grammarStatusNote">Ready</p>
+                </div>
+                <div class="toolbar-actions grammar-output-actions">
+                  <button type="button" class="btn ghost" id="grammarCopyBtn">Copy</button>
+                  <button type="button" class="btn ghost" id="grammarDownloadBtn">Download .txt</button>
+                </div>
+              </div>
+              <div class="grammar-output-display">
+                <pre id="grammarCorrectedText" class="grammar-output-text">Corrected text will appear here.</pre>
+                <div id="grammarExplanations" class="grammar-explanations" hidden>
+                  <p class="helper-text">Explanation</p>
+                  <ul id="grammarExplanationList"></ul>
+                </div>
+              </div>
+              <div class="grammar-output-actions grammar-output-actions--secondary">
+                <button type="button" class="btn secondary" id="grammarSaveBtn">Save</button>
+                <button type="button" class="btn secondary" id="grammarShareBtn">Share</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="history-panel" class="tab-panel page-view history-view" data-view="history" data-tab-panel="history" hidden>
           <div class="page-heading">
             <div>
               <p class="breadcrumbs">History</p>

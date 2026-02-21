@@ -1,32 +1,78 @@
 ﻿import { requestJson, ApiError } from "./api.js";
 import { showToast } from "./ui.js";
 
-const examText = document.getElementById("examText");
-const examCount = document.getElementById("examCountBadge");
-const difficultySelect = document.getElementById("difficultySelect");
-const questionCountInput = document.getElementById("questionCount");
-const strictTypesToggle = document.getElementById("strictTypesToggle");
-const mcqCountInput = document.getElementById("mcqCount");
-const tfCountInput = document.getElementById("tfCount");
-const shortCountInput = document.getElementById("shortCount");
-const fillCountInput = document.getElementById("fillCount");
-const typeStatus = document.getElementById("typeStatus");
-const generateBtn = document.querySelector("[data-action=generate-exam]");
-const clearBtn = document.querySelector("[data-action=clear-exam]");
-const submitBtn = document.querySelector("[data-action=submit-exam]");
-const exportJsonBtn = document.querySelector("[data-action=export-json]");
-const exportHtmlBtn = document.querySelector("[data-action=export-html]");
-const examMeta = document.getElementById("examMeta");
-const examQuestions = document.getElementById("examQuestions");
-const resultsPanel = document.getElementById("resultsPanel");
-const examStatusText = document.getElementById("examStatusText");
-const examsList = document.getElementById("examsList");
-const attemptFilterInput = document.getElementById("attemptFilter");
-const attemptSortSelect = document.getElementById("attemptSort");
-const attemptTableBody = document.getElementById("attemptTableBody");
-const attemptPlaceholder = document.getElementById("attemptPlaceholder");
-const knowledgeState = document.getElementById("knowledgeState");
-const sourcesList = document.getElementById("sourcesList");
+let examRoot = null;
+let examText = null;
+let examCount = null;
+let difficultySelect = null;
+let questionCountInput = null;
+let strictTypesToggle = null;
+let mcqCountInput = null;
+let tfCountInput = null;
+let shortCountInput = null;
+let fillCountInput = null;
+let typeStatus = null;
+let generateBtn = null;
+let clearBtn = null;
+let submitBtn = null;
+let exportJsonBtn = null;
+let exportHtmlBtn = null;
+let examMeta = null;
+let examQuestions = null;
+let resultsPanel = null;
+let examStatusText = null;
+let examsList = null;
+let attemptFilterInput = null;
+let attemptSortSelect = null;
+let attemptTableBody = null;
+let attemptPlaceholder = null;
+let knowledgeState = null;
+let sourcesList = null;
+
+const captureExamElements = () => {
+  const root = document.querySelector('[data-tab-panel="exam"]');
+  if (!root) {
+    console.error("Exam panel missing");
+    return null;
+  }
+  const find = (selector, description) => {
+    const element = root.querySelector(selector);
+    if (!element) {
+      console.error(`Missing ${description || selector} in exam panel`);
+    }
+    return element;
+  };
+  examRoot = root;
+  examText = find("#examText", "exam text area");
+  examCount = find("#examCountBadge", "exam counter");
+  difficultySelect = find("#difficultySelect", "difficulty select");
+  questionCountInput = find("#questionCount", "question count input");
+  strictTypesToggle = find("#strictTypesToggle", "strict types toggle");
+  mcqCountInput = find("#mcqCount", "MCQ count input");
+  tfCountInput = find("#tfCount", "true/false count input");
+  shortCountInput = find("#shortCount", "short answer count input");
+  fillCountInput = find("#fillCount", "fill-in count input");
+  typeStatus = find("#typeStatus", "type status indicator");
+  generateBtn = find("[data-action=generate-exam]", "generate button");
+  clearBtn = find("[data-action=clear-exam]", "clear button");
+  submitBtn = find("[data-action=submit-exam]", "submit button");
+  exportJsonBtn = find("[data-action=export-json]", "export JSON button");
+  exportHtmlBtn = find("[data-action=export-html]", "export HTML button");
+  examMeta = find("#examMeta", "exam meta");
+  examQuestions = find("#examQuestions", "exam questions");
+  resultsPanel = find("#resultsPanel", "results panel");
+  examStatusText = find("#examStatusText", "exam status text");
+  examsList = find("#examsList", "exam history list");
+  attemptFilterInput = find("#attemptFilter", "attempt filter input");
+  attemptSortSelect = find("#attemptSort", "attempt sort select");
+  attemptTableBody = find("#attemptTableBody", "attempts table body");
+  attemptPlaceholder = find("#attemptPlaceholder", "attempt placeholder");
+  knowledgeState = find("#knowledgeState", "knowledge state label");
+  sourcesList = find("#sourcesList", "knowledge sources list");
+  return root;
+};
+
+const EXAM_INIT_FLAG = "__examFlowInitialized";
 
 let currentExam = null;
 let attemptsHistory = [];
@@ -50,10 +96,10 @@ const escapeHtml = (value) =>
   String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 const getTypeCounts = () => ({
-  mcq: Number(mcqCountInput.value || 0),
-  trueFalse: Number(tfCountInput.value || 0),
-  shortAnswer: Number(shortCountInput.value || 0),
-  fillBlank: Number(fillCountInput.value || 0),
+  mcq: Number(mcqCountInput?.value || 0),
+  trueFalse: Number(tfCountInput?.value || 0),
+  shortAnswer: Number(shortCountInput?.value || 0),
+  fillBlank: Number(fillCountInput?.value || 0),
 });
 
 const updateExamCounter = () => {
@@ -67,7 +113,7 @@ const updateExamCounter = () => {
 
 const updateTypeStatus = () => {
   if (!typeStatus) return { isValid: true, questionCount: 0, types: getTypeCounts() };
-  const questionCount = Number(questionCountInput.value || 0);
+  const questionCount = Number(questionCountInput?.value || 0);
   const types = getTypeCounts();
   const total = Object.values(types).reduce((sum, value) => sum + value, 0);
   const isValid = total === questionCount;
@@ -367,8 +413,9 @@ const fetchKnowledgeSources = async () => {
   }
 };
 
-const gatherAnswers = () =>
-  currentExam.questions.map((question) => {
+const gatherAnswers = () => {
+  if (!examQuestions || !currentExam) return [];
+  return currentExam.questions.map((question) => {
     let value = "";
     if (["mcq", "trueFalse"].includes(question.type)) {
       const selected = examQuestions.querySelector(`input[name="${question.id}"]:checked`);
@@ -383,6 +430,7 @@ const gatherAnswers = () =>
       value,
     };
   });
+};
 
 const handleGenerateExam = async () => {
   if (!examText || !generateBtn) return;
@@ -510,11 +558,11 @@ const handleExport = (format) => {
 const clearExamInputs = () => {
   if (!examText) return;
   examText.value = "";
-  questionCountInput.value = "10";
-  mcqCountInput.value = "4";
-  tfCountInput.value = "2";
-  shortCountInput.value = "2";
-  fillCountInput.value = "2";
+  if (questionCountInput) questionCountInput.value = "10";
+  if (mcqCountInput) mcqCountInput.value = "4";
+  if (tfCountInput) tfCountInput.value = "2";
+  if (shortCountInput) shortCountInput.value = "2";
+  if (fillCountInput) fillCountInput.value = "2";
   updateExamCounter();
   updateTypeStatus();
   setExamStatus("Idle");
@@ -565,6 +613,9 @@ const bindLibraryOpenEvent = () => {
 };
 
 const initExamFlow = () => {
+  if (window[EXAM_INIT_FLAG]) return;
+  if (!captureExamElements()) return;
+  window[EXAM_INIT_FLAG] = true;
   updateExamCounter();
   updateTypeStatus();
   setExamStatus("Idle");

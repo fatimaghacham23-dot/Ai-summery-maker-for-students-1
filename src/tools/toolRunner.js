@@ -1,7 +1,8 @@
 const crypto = require("crypto");
 const { AppError } = require("../middleware/errorHandler");
-const { db } = require("../db");
 const { getProvider } = require("../providers");
+const persistenceService = require("../services/persistenceService");
+const { buildLanguageContext } = require("../utils/languageUtils");
 
 const MIN_TEXT_LENGTH = 20;
 const MAX_TEXT_LENGTH = 50000;
@@ -27,25 +28,6 @@ const validateRequest = ({ tool, text }) => {
   }
 };
 
-const persistRun = ({
-  runId,
-  tool,
-  documentId,
-  params,
-  output,
-  provider,
-  model,
-}) => {
-  const now = new Date().toISOString();
-  const paramsJson = JSON.stringify(params);
-  const outputJson = JSON.stringify(output);
-  db.prepare(
-    `INSERT INTO runs
-      (id, documentId, tool, paramsJson, provider, model, outputJson, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(runId, documentId || null, tool, paramsJson, provider, model || null, outputJson, now);
-};
-
 const validateControls = (controls = {}) => {
   const errors = [];
   if (controls.length !== undefined && (typeof controls.length !== "number" || controls.length < 0 || controls.length > 1)) {
@@ -62,7 +44,7 @@ const validateControls = (controls = {}) => {
   }
 };
 
-const runTool = async ({ tool, text, controls, options, documentId }) => {
+const runTool = async ({ tool, text, controls = {}, options = {}, documentId }) => {
   validateRequest({ tool, text });
   validateControls(controls || {});
   const provider = getProvider();
@@ -73,21 +55,28 @@ const runTool = async ({ tool, text, controls, options, documentId }) => {
 
   const runId = crypto.randomUUID();
   const trimmedText = text.trim();
+  const requestedLanguage = options?.targetLanguage || controls?.language || "";
+  const languageContext = buildLanguageContext({
+    inputText: trimmedText,
+    requestedLanguage,
+  });
   const response = await provider.runTool({
     tool,
     text: trimmedText,
     controls,
     options,
     documentId,
+    languageContext,
   });
 
   if (!response || !response.output) {
     throw new AppError("Tool execution returned an invalid response.", 502, "PROVIDER_ERROR");
   }
 
-  persistRun({
+  persistenceService.persistRun({
     runId,
     tool,
+    type: tool,
     documentId,
     params: {
       tool,
@@ -96,8 +85,9 @@ const runTool = async ({ tool, text, controls, options, documentId }) => {
       documentId,
       inputText: trimmedText,
       textPreview: trimmedText.slice(0, 400),
+      language: languageContext.finalLanguage,
     },
-    output: {
+    outputJson: {
       output: response.output,
       highlights: response.highlights || [],
     },

@@ -2,15 +2,14 @@ const fs = require("fs");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 
-const resolveDatabasePath = () => {
-  if (process.env.DATABASE_PATH) {
-    return process.env.DATABASE_PATH;
-  }
-  return path.join(__dirname, "../../data/app.db");
+const DEFAULT_DB_PATH = path.join(__dirname, "../../data/app.db");
+
+const isInMemoryPath = (candidate) => {
+  return String(candidate || "").startsWith(":memory:");
 };
 
 const ensureDatabaseDirectory = (dbPath) => {
-  if (dbPath === ":memory:") {
+  if (!dbPath || isInMemoryPath(dbPath)) {
     return;
   }
   const dir = path.dirname(dbPath);
@@ -19,14 +18,24 @@ const ensureDatabaseDirectory = (dbPath) => {
   }
 };
 
-const dbPath = resolveDatabasePath();
-ensureDatabaseDirectory(dbPath);
+const resolveDatabasePath = () => {
+  if (process.env.DATABASE_PATH) {
+    return process.env.DATABASE_PATH;
+  }
+  if (process.env.NODE_ENV === "test") {
+    return ":memory:";
+  }
+  return DEFAULT_DB_PATH;
+};
 
-const db = new DatabaseSync(dbPath);
-db.exec("PRAGMA journal_mode = WAL;");
+const applyPragmaSettings = (database) => {
+  database.exec("PRAGMA journal_mode = WAL;");
+  database.exec("PRAGMA busy_timeout = 5000;");
+  database.exec("PRAGMA synchronous = NORMAL;");
+};
 
-const createSchema = () => {
-  db.exec(`
+const createSchema = (database) => {
+  database.exec(`
     CREATE TABLE IF NOT EXISTS exams (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -70,6 +79,7 @@ const createSchema = () => {
       id TEXT PRIMARY KEY,
       documentId TEXT,
       tool TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT '',
       paramsJson TEXT NOT NULL,
       provider TEXT NOT NULL,
       model TEXT,
@@ -101,7 +111,7 @@ const createSchema = () => {
   `);
 
   try {
-    db.exec(`
+    database.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts USING fts5(
         text,
         subject,
@@ -129,12 +139,12 @@ const createSchema = () => {
       END;
     `);
   } catch (error) {
-    // FTS5 may be unavailable (e.g., some Windows SQLite builds). App and tests should still run.
+    // FTS5 may be unavailable; ignore so the rest of the schema can still load.
   }
 };
 
-const migrateExamSchema = () => {
-  const examColumns = db.prepare("PRAGMA table_info(exams)").all();
+const migrateExamSchema = (database) => {
+  const examColumns = database.prepare("PRAGMA table_info(exams)").all();
   if (examColumns.length === 0) {
     return;
   }
@@ -143,8 +153,8 @@ const migrateExamSchema = () => {
     return;
   }
 
-  db.exec("BEGIN");
-  db.exec(`
+  database.exec("BEGIN");
+  database.exec(`
     CREATE TABLE exams_new (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -164,14 +174,14 @@ const migrateExamSchema = () => {
     );
   `);
 
-  db.exec(`
+  database.exec(`
     INSERT INTO exams_new (title, sourceTextHash, configJson, examJson, createdAt)
     SELECT title, sourceTextHash, configJson, examJson, createdAt
     FROM exams
     ORDER BY rowid;
   `);
 
-  db.exec(`
+  database.exec(`
     CREATE TABLE exam_id_map AS
     SELECT old.id AS oldId, new.id AS newId
     FROM (
@@ -185,7 +195,7 @@ const migrateExamSchema = () => {
     ON old.rn = new.rn;
   `);
 
-  db.exec(`
+  database.exec(`
     INSERT INTO attempts_new (id, examId, answersJson, scoreJson, createdAt)
     SELECT attempts.id,
       exam_id_map.newId,
@@ -196,18 +206,138 @@ const migrateExamSchema = () => {
     JOIN exam_id_map ON attempts.examId = exam_id_map.oldId;
   `);
 
-  db.exec("DROP TABLE attempts;");
-  db.exec("DROP TABLE exams;");
-  db.exec("DROP TABLE exam_id_map;");
-  db.exec("ALTER TABLE exams_new RENAME TO exams;");
-  db.exec("ALTER TABLE attempts_new RENAME TO attempts;");
-  db.exec("COMMIT");
+  database.exec("DROP TABLE attempts;");
+  database.exec("DROP TABLE exams;");
+  database.exec("DROP TABLE exam_id_map;");
+  database.exec("ALTER TABLE exams_new RENAME TO exams;");
+  database.exec("ALTER TABLE attempts_new RENAME TO attempts;");
+  database.exec("COMMIT");
 };
 
-createSchema();
-migrateExamSchema();
-createSchema();
+const ensureRunsTypeColumn = (database) => {
+  const runColumns = database.prepare("PRAGMA table_info(runs)").all();
+  const typeColumn = runColumns.find((column) => column.name === "type");
+  if (typeColumn) {
+    return;
+  }
+  database.exec("ALTER TABLE runs ADD COLUMN type TEXT DEFAULT ''");
+  database.prepare("UPDATE runs SET type = tool WHERE type IS NULL OR type = ''").run();
+};
+
+const buildDatabase = () => {
+  const resolvedPath = resolveDatabasePath();
+  ensureDatabaseDirectory(resolvedPath);
+  const database = new DatabaseSync(resolvedPath);
+  applyPragmaSettings(database);
+  createSchema(database);
+  migrateExamSchema(database);
+  createSchema(database);
+  ensureRunsTypeColumn(database);
+  return database;
+};
+
+let currentDb = null;
+
+const getDb = () => {
+  if (!currentDb) {
+    currentDb = buildDatabase();
+  }
+  return currentDb;
+};
+
+const closeDatabase = () => {
+  if (!currentDb) {
+    return;
+  }
+  try {
+    currentDb.close();
+  } catch (error) {
+    console.warn("Failed to close database:", error.message || error);
+  }
+  currentDb = null;
+};
+
+const resetTestDatabase = () => {
+  if (process.env.NODE_ENV !== "test") {
+    return getDb();
+  }
+  closeDatabase();
+  return getDb();
+};
+
+const busyWait = (ms) => {
+  const normalized = Number(ms) || 0;
+  const end = Date.now() + Math.max(0, normalized);
+  while (Date.now() < end) {
+    // busy wait to give locks a chance to clear
+  }
+};
+
+const runInTransaction = (operation, options = {}) => {
+  const maxAttempts = Math.max(1, Number(options.retries) || 4);
+  const backoffMs = Number(options.backoffMs) || 30;
+  const db = getDb();
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      db.exec("BEGIN IMMEDIATE");
+      const result = operation(db);
+      db.exec("COMMIT");
+      return result;
+    } catch (error) {
+      try {
+        db.exec("ROLLBACK");
+      } catch {
+        // ignore rollback errors
+      }
+      const isBusy =
+        error &&
+        (error.code === "SQLITE_BUSY" ||
+          (typeof error.message === "string" && error.message.includes("SQLITE_BUSY")));
+      if (isBusy && attempt < maxAttempts - 1) {
+        busyWait(backoffMs * (attempt + 1));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("Database transaction failed after multiple retries.");
+};
+
+const dbProxy = new Proxy(
+  {},
+  {
+    get(_, prop) {
+      const database = getDb();
+      const value = database[prop];
+      return typeof value === "function" ? value.bind(database) : value;
+    },
+    set(_, prop, value) {
+      const database = getDb();
+      database[prop] = value;
+      return true;
+    },
+    has(_, prop) {
+      return prop in getDb();
+    },
+    ownKeys() {
+      return Reflect.ownKeys(getDb());
+    },
+    getOwnPropertyDescriptor(_, prop) {
+      const database = getDb();
+      const descriptor = Object.getOwnPropertyDescriptor(database, prop);
+      if (descriptor) {
+        descriptor.configurable = true;
+      }
+      return descriptor;
+    },
+  }
+);
 
 module.exports = {
-  db,
+  db: dbProxy,
+  getDb,
+  runInTransaction,
+  resetTestDatabase,
+  closeDatabase,
+  getDatabasePath: resolveDatabasePath,
 };

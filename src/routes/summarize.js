@@ -1,8 +1,11 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const { z } = require("zod");
 
 const { AppError } = require("../middleware/errorHandler");
 const { getProvider } = require("../providers");
+const { buildLanguageContext } = require("../utils/languageUtils");
+const { isQuietTestLogs } = require("../utils/quietLogs");
 
 const router = express.Router();
 
@@ -12,69 +15,81 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: {
-    error: {
-      code: "RATE_LIMITED",
-      message: "Too many requests, please try again later.",
-    },
+    error: true,
+    code: "RATE_LIMITED",
+    message: "Too many requests, please try again later.",
   },
 });
 
 const allowedLengths = ["short", "medium", "detailed", "unlimited"];
 const allowedFormats = ["paragraph", "bullets"];
 
+const SHORT_INPUT_THRESHOLD = 20;
+const SHORT_INPUT_SUMMARY = "Text is too short to summarize meaningfully.";
+const SHORT_INPUT_REASON = "SHORT_INPUT";
+const TEXT_MIN_LENGTH = 5;
+const TEXT_MAX_LENGTH = 12000;
+
+const baseSummarySchema = z.object({
+  length: z.enum(allowedLengths),
+  format: z.enum(allowedFormats),
+  targetLanguage: z.string().optional(),
+  language: z.string().optional(),
+});
+
+const shortInputSchema = baseSummarySchema.extend({
+  text: z.string().max(TEXT_MAX_LENGTH),
+});
+
+const summarizeSchema = baseSummarySchema.extend({
+  text: z.string().min(TEXT_MIN_LENGTH).max(TEXT_MAX_LENGTH),
+});
+
+const handleValidation = (schema, data) => {
+  const result = schema.safeParse(data || {});
+  if (!result.success) {
+    const details = result.error.flatten();
+    throw new AppError("Validation failed.", 400, "VALIDATION_ERROR", details);
+  }
+  return result.data;
+};
+
 const validateRequest = (req, res, next) => {
-  const { text, length, format } = req.body || {};
+  try {
+    const parsed = handleValidation(shortInputSchema, req.body);
+    const trimmedText = parsed.text.trim();
+    if (!trimmedText) {
+      throw new AppError("Text is required.", 400, "VALIDATION_ERROR");
+    }
 
-  if (!text || typeof text !== "string") {
-    return next(new AppError("Text is required.", 400, "VALIDATION_ERROR"));
+    parsed.text = trimmedText;
+    parsed.requestedLanguage = (parsed.targetLanguage || parsed.language || "").trim();
+
+    if (trimmedText.length < SHORT_INPUT_THRESHOLD) {
+      return res.status(200).json({
+        summary: SHORT_INPUT_SUMMARY,
+        meta: { reason: SHORT_INPUT_REASON },
+      });
+    }
+
+    const validated = handleValidation(summarizeSchema, parsed);
+    validated.requestedLanguage = parsed.requestedLanguage;
+    req.body = validated;
+    return next();
+  } catch (error) {
+    return next(error);
   }
-
-  const trimmedText = text.trim();
-  if (trimmedText.length < 20) {
-    return next(
-      new AppError("Text must be at least 20 characters.", 400, "VALIDATION_ERROR")
-    );
-  }
-
-  if (trimmedText.length > 12000) {
-    return next(
-      new AppError(
-        "Text must be no more than 12000 characters.",
-        400,
-        "VALIDATION_ERROR"
-      )
-    );
-  }
-
-  if (!allowedLengths.includes(length)) {
-    return next(
-      new AppError(
-        "Length must be one of: short, medium, detailed, unlimited.",
-        400,
-        "VALIDATION_ERROR"
-      )
-    );
-  }
-
-  if (!allowedFormats.includes(format)) {
-    return next(
-      new AppError(
-        "Format must be one of: paragraph, bullets.",
-        400,
-        "VALIDATION_ERROR"
-      )
-    );
-  }
-
-  req.body.text = trimmedText;
-  return next();
 };
 
 router.post("/summarize", limiter, validateRequest, async (req, res, next) => {
   try {
     const provider = getProvider();
     const { text, length, format } = req.body;
-    const summary = await provider.summarize({ text, length, format });
+    const languageContext = buildLanguageContext({
+      inputText: text,
+      requestedLanguage: req.body.requestedLanguage,
+    });
+    const summary = await provider.summarize({ text, length, format, languageContext });
 
     res.json({
       summary,
@@ -82,10 +97,27 @@ router.post("/summarize", limiter, validateRequest, async (req, res, next) => {
       format,
       meta: {
         characters: text.length,
+        language: languageContext.finalLanguage,
       },
     });
   } catch (error) {
-    next(error);
+    const statusCode = error.statusCode || 500;
+    const code = error.code || "INTERNAL_ERROR";
+    const payload = {
+      error: true,
+      message: error.message || "Unexpected error",
+      code,
+    };
+
+    if (error.details) {
+      payload.details = error.details;
+    }
+
+    if (statusCode >= 500 && !isQuietTestLogs()) {
+      console.error(error);
+    }
+
+    res.status(statusCode).json(payload);
   }
 });
 

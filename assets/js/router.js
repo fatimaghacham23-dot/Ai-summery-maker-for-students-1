@@ -1,12 +1,20 @@
 import { initSummaryFlow } from "./summary.js";
 import { initSummaryInputs } from "./toolsWorkspace.js";
 import { initExamFlow } from "./exams.js";
+import { initWriterFlow } from "./writer.js";
 import { initImagesFlow } from "./images.js";
 import { requestJson } from "./api.js";
 import { showToast } from "./ui.js";
+import { initSongFlow } from "./song.js";
+import { initGrammarFlow } from "./grammar.js";
 
-const navLinks = Array.from(document.querySelectorAll(".nav-link[data-nav-target]"));
-const pageViews = Array.from(document.querySelectorAll(".page-view"));
+const navLinks = Array.from(
+  new Set([
+    ...document.querySelectorAll(".nav-link[data-nav-target]"),
+    ...document.querySelectorAll(".nav-link[data-tab]"),
+  ])
+);
+const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 const viewBreadcrumb = document.getElementById("viewBreadcrumb");
 const apiStatusIndicator = document.getElementById("apiStatusIndicator");
 const footerVersion = document.getElementById("footerVersion");
@@ -15,7 +23,11 @@ const versionMeta = document.querySelector("meta[name=app-version]");
 const viewLabels = {
   summary: "Summary",
   exam: "Exam",
+  writer: "Writer Studio",
+  song: "Song Generator",
+  grammar: "Grammar Fixer",
   history: "History",
+  visual: "Visuals",
   images: "Visuals",
 };
 
@@ -25,6 +37,11 @@ const SAVED_VISUALS_STORAGE_KEY = "saved-visuals";
 const libraryGrid = document.getElementById("learningLibraryGrid");
 const libraryFilterButtons = Array.from(document.querySelectorAll("[data-library-filter]"));
 let activeLibraryFilter = "all";
+let examTabInitialized = false;
+let visualTabInitialized = false;
+let writerTabInitialized = false;
+let songTabInitialized = false;
+let grammarTabInitialized = false;
 
 const renderEmptyState = ({ title, subtitle }) => `
   <div class="empty-state">
@@ -133,7 +150,7 @@ const renderLibraryEmptyState = ({ type }) => {
     all: { title: "No library items yet", subtitle: "Generate a summary, exam, or visual to build your library.", cta: "Go to Summary", target: "summary" },
     summary: { title: "No summaries yet", subtitle: "Your saved summaries will appear here.", cta: "Generate a summary", target: "summary" },
     exam: { title: "No exams yet", subtitle: "Your generated exams will appear here.", cta: "Generate an exam", target: "exam" },
-    visual: { title: "No visuals yet", subtitle: "Go generate your first diagram.", cta: "Generate a visual", target: "images" },
+    visual: { title: "No visuals yet", subtitle: "Go generate your first diagram.", cta: "Generate a visual", target: "visual" },
   };
   const payload = labelMap[type] || labelMap.all;
   libraryGrid.innerHTML = `
@@ -475,28 +492,57 @@ const bindLibraryFilters = () => {
 
 let activeViewName = null;
 
+const getLinkTarget = (link) => link.dataset.tab || link.dataset.navTarget || "";
+
+const ensureTabInitialized = (viewName) => {
+  if (viewName === "exam" && !examTabInitialized) {
+    initExamFlow();
+    examTabInitialized = true;
+    return;
+  }
+  if (viewName === "visual" && !visualTabInitialized) {
+    initImagesFlow();
+    visualTabInitialized = true;
+    return;
+  }
+  if (viewName === "writer" && !writerTabInitialized) {
+    initWriterFlow();
+    writerTabInitialized = true;
+    return;
+  }
+  if (viewName === "song" && !songTabInitialized) {
+    initSongFlow();
+    songTabInitialized = true;
+  }
+  if (viewName === "grammar" && !grammarTabInitialized) {
+    initGrammarFlow();
+    grammarTabInitialized = true;
+  }
+};
+
 const setActiveView = (target) => {
   const viewName = target || "summary";
   activeViewName = viewName;
   navLinks.forEach((link) => {
-    const isActive = link.dataset.navTarget === viewName;
+    const linkTarget = getLinkTarget(link);
     const isHeaderPill = Boolean(link.closest(".header-nav-pill"));
     const shouldSuppressHeaderActive = isHeaderPill && viewName === "history";
-    link.classList.toggle("active", isActive);
-    if (shouldSuppressHeaderActive) {
-      link.classList.remove("active");
-    }
+    const isActive = linkTarget === viewName;
+    link.classList.toggle("active", isActive && !shouldSuppressHeaderActive);
     link.setAttribute("aria-pressed", isActive ? "true" : "false");
     if (shouldSuppressHeaderActive) {
       link.setAttribute("aria-pressed", "false");
     }
   });
-  pageViews.forEach((view) => {
-    view.classList.toggle("active", view.dataset.view === viewName);
+  tabPanels.forEach((panel) => {
+    const isActive = panel.dataset.tabPanel === viewName;
+    panel.classList.toggle("active", isActive);
+    panel.hidden = !isActive;
   });
   if (viewBreadcrumb) {
     viewBreadcrumb.textContent = `Workspace / ${viewLabels[viewName] || viewLabels.summary}`;
   }
+  ensureTabInitialized(viewName);
 
   if (viewName === "history") {
     refreshHistoryView();
@@ -505,7 +551,7 @@ const setActiveView = (target) => {
 
 const handleNavClick = (event) => {
   const button = event.currentTarget;
-  const target = button.dataset.navTarget;
+  const target = button.dataset.tab || button.dataset.navTarget;
   if (!target) return;
   setActiveView(target);
 };
@@ -534,8 +580,6 @@ const bootstrap = () => {
   navLinks.forEach((link) => link.addEventListener("click", handleNavClick));
   initSummaryFlow();
   initSummaryInputs();
-  initExamFlow();
-  initImagesFlow();
   bindLibraryFilters();
   applyVersion();
   checkApiHealth();

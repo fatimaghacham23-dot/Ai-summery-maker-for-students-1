@@ -14,6 +14,8 @@ const persistenceRouter = require("./routes/persistence");
 const shareViewRouter = require("./routes/shareView");
 const inputsRouter = require("./routes/inputs");
 const imagesRouter = require("./routes/images");
+const songRouter = require("./routes/song");
+const grammarRouter = require("./routes/grammar");
 const { debugRouter } = require("./debug/debugRoutes");
 const openapiSpec = require("./docs/openapi");
 
@@ -48,6 +50,8 @@ app.use("/api", imagesRouter);
 app.use("/api", examsRouter);
 app.use("/api", knowledgeRouter);
 app.use("/api", persistenceRouter);
+app.use("/api", songRouter);
+app.use("/api", grammarRouter);
 app.use("/api/inputs", inputsRouter);
 app.use("/api/tools", toolsRouter);
 app.use(shareViewRouter);

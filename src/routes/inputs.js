@@ -4,7 +4,7 @@ const mammoth = require("mammoth");
 const pdfParse = require("pdf-parse");
 const { randomUUID } = require("crypto");
 const { AppError } = require("../middleware/errorHandler");
-const { db } = require("../db");
+const { db, runInTransaction } = require("../db");
 const { ensureSafeUrl, fetchWithTimeout } = require("../utils/network");
 const { isQuietTestLogs } = require("../utils/quietLogs");
 const {
@@ -46,6 +46,10 @@ const CONSENT_PATTERNS = [
   /consentRequired/i,
   /www\.google\.com\/sorry\//i,
 ];
+
+const isTestEnvironment =
+  process.env.NODE_ENV === "test" ||
+  typeof process.env.JEST_WORKER_ID !== "undefined";
 
 const shouldLogYouTubeDebug = () => !isQuietTestLogs();
 
@@ -1447,8 +1451,8 @@ const runYoutubeiWithRetry = async ({
 };
 
 const fetchYouTubeTranscript = async (videoId, language) => {
-  const enableCaptionRetries = process.env.NODE_ENV !== "test";
-  const enableInnertubePlayerDiscovery = process.env.NODE_ENV !== "test";
+  const enableCaptionRetries = !isTestEnvironment;
+  const enableInnertubePlayerDiscovery = !isTestEnvironment;
   const cookieJar = new SimpleCookieJar();
   let consentCookieHeader = await fetchYouTubeConsentCookieHeader(cookieJar);
   const watchData = await fetchWatchPageData({
@@ -1728,10 +1732,12 @@ const upload = multer({
 
 const persistDocument = ({ id, title, sourceType, sourceRef, text }) => {
   const now = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO documents (id, title, sourceType, sourceRef, text, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(id, title, sourceType, sourceRef, text, now);
+  runInTransaction((transactionalDb) => {
+    transactionalDb.prepare(
+      `INSERT INTO documents (id, title, sourceType, sourceRef, text, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(id, title, sourceType, sourceRef, text, now);
+  });
 };
 
 const sanitizeText = (value) => (String(value || "").trim() || "");
@@ -1927,12 +1933,12 @@ router.post("/youtube", async (req, res, next) => {
     } catch (error) {
       if (error instanceof AppError) {
         const nonFatalBlocked =
-          process.env.NODE_ENV !== "test" &&
+          !isTestEnvironment &&
           ["YOUTUBE_TRANSCRIPT_BLOCKED", "TRANSCRIPT_UNAVAILABLE"].includes(error.code);
 
         const blockedReason = error.details?.reason || error.code;
         const nonFatalNetworkBlocked =
-          process.env.NODE_ENV !== "test" &&
+          !isTestEnvironment &&
           blockedReason &&
           ["fetch_blocked", "unexpected_html", "consent_required"].includes(String(blockedReason));
 

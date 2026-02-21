@@ -276,7 +276,7 @@ describe("Exam Maker API", () => {
       });
 
     expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(response.body.code).toBe("VALIDATION_ERROR");
   });
 
   test("generate exam validation error on invalid difficulty", async () => {
@@ -290,7 +290,7 @@ describe("Exam Maker API", () => {
       });
 
     expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(response.body.code).toBe("VALIDATION_ERROR");
   });
 
   test("get exam by id", async () => {
@@ -439,7 +439,7 @@ describe("Exam Maker API", () => {
 
     if (response.status === 422) {
       expect(response.body.missing).toBeDefined();
-      expect(response.body.debug).toBeDefined();
+      expect(response.body.details?.debug).toBeDefined();
       return;
     }
 
@@ -530,7 +530,7 @@ An empire expands by conquering neighboring lands over many years.
       });
 
     if (response.status === 422) {
-      expect(response.body.debug).toBeDefined();
+      expect(response.body.details?.debug).toBeDefined();
       return;
     }
 
@@ -566,8 +566,10 @@ An empire expands by conquering neighboring lands over many years.
       });
 
     if (response.status === 422) {
-      expect(response.body.debug).toBeDefined();
-      expect(Array.isArray(response.body.debug.exampleFailedCandidates)).toBe(true);
+      expect(response.body.details?.debug).toBeDefined();
+      expect(
+        Array.isArray(response.body.details?.debug?.exampleFailedCandidates)
+      ).toBe(true);
       return;
     }
 
@@ -739,8 +741,8 @@ An empire expands by conquering neighboring lands over many years.
         strictTypes: true,
       });
     expect(response.status).toBe(422);
-    expect(response.body.reason).toBe("scenario-share");
-    expect(response.body.debug?.scenarioShare?.deficit).toBeGreaterThan(0);
-    expect(response.body.debug?.scenarioShare?.generatedFamilies).toBeDefined();
+    expect(response.body.details?.reason).toBe("scenario-share");
+    expect(response.body.details?.debug?.scenarioShare?.deficit).toBeGreaterThan(0);
+    expect(response.body.details?.debug?.scenarioShare?.generatedFamilies).toBeDefined();
   });
 });

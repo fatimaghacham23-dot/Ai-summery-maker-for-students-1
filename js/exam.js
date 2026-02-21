@@ -240,7 +240,7 @@ const fetchJson = async (url, options) => {
   const response = await fetch(url, { credentials: "include", ...options });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = data?.error?.message || data?.reason || "Request failed";
+      const message = data?.message || data?.error?.message || data?.reason || "Request failed";
     const error = new Error(message);
     error.status = response.status;
     error.data = data;
