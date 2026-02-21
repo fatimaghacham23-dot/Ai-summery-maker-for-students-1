@@ -1,4 +1,3 @@
-const { request } = require("undici");
 const { AppError } = require("../../src/middleware/errorHandler");
 const { buildUsedPrompt } = require("../../src/image/promptHelpers");
 const { getOpenAiApiKey } = require("../../src/utils/openaiConfig");
@@ -10,6 +9,7 @@ const DEFAULT_IMAGE_MODEL = process.env.IMAGE_MODEL || "gpt-image-1";
 const MOCK_IMAGE_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAIAAAD+Msi5AAAAKklEQVR4nO3BMQEAAADCoPVPbQ0PoAAAAAAAAAAAAAAAAAAAAAAAAICLAABwE5fAAAGW6k7fAAAAAElFTkSuQmCC";
 
+<<<<<<< HEAD
 
 const normalizeBaseUrl = (value) => String(value || "").replace(/\/+$/, "");
 const trimSlashes = (value) => String(value || "").replace(/^\/+|\/+$/g, "");
@@ -102,23 +102,57 @@ const parseResponseError = async (body) => {
   if (!body) {
     return "Unexpected response from Hugging Face";
   }
+=======
+const generateImages = async ({
+  prompt,
+  style,
+  size,
+  quality,
+  format,
+  n = 1,
+}) => {
+>>>>>>> 6ac966a3b517f7a7a874dad7b2b8e768879c3ebe
   try {
-    const text = await body.text();
-    if (!text) {
-      return "Unexpected response from Hugging Face";
-    }
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed?.error) {
-        return parsed.error;
+    const usedPrompt = buildUsedPrompt({ prompt, style, quality });
+
+    const limit = Math.max(1, Math.min(4, Number(n) || 1));
+    const images = [];
+
+    for (let i = 0; i < limit; i++) {
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/aiyouthalliance/Free-Image-Generation",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+            "Content-Type": "application/json",
+            Accept: "image/png",
+          },
+          body: JSON.stringify({
+            inputs: usedPrompt,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`HF error ${response.status}: ${text}`);
       }
-      if (parsed?.message) {
-        return parsed.message;
-      }
-      return text;
-    } catch {
-      return text;
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const base64 = buffer.toString("base64");
+
+      images.push({
+        dataUrl: `data:image/png;base64,${base64}`,
+        mimeType: "image/png",
+        imageBase64: base64,
+        b64: base64,
+        byteLength: buffer.byteLength,
+        contentType: "image/png",
+        revisedPrompt: null,
+      });
     }
+<<<<<<< HEAD
   } catch (error) {
     return "Unexpected Hugging Face error";
   }
@@ -169,10 +203,31 @@ const fetchSingleHfImage = async (usedPrompt, size) => {
     const message = await parseResponseError(response.body);
     throw new AppError(
       `Hugging Face Router provider "${provider}" / model "${model}" returned ${response.statusCode}: ${message}`,
+=======
+
+    return {
+      provider: "huggingface-free",
+      model: "aiyouthalliance/Free-Image-Generation",
+      usedPrompt,
+      style,
+      size,
+      quality,
+      format,
+      images,
+      raw: {
+        contentType: "image/png",
+        byteLength: images[0]?.byteLength || 0,
+      },
+    };
+  } catch (error) {
+    throw new AppError(
+      error.message || "Hugging Face free image generation failed",
+>>>>>>> 6ac966a3b517f7a7a874dad7b2b8e768879c3ebe
       502,
-      "hf-model-unavailable"
+      "hf-free-error"
     );
   }
+<<<<<<< HEAD
   if (response.statusCode >= 400) {
     const message = await parseResponseError(response.body);
     throw new AppError(message, 502, "hf-error");
@@ -378,4 +433,10 @@ module.exports = {
   getEnvStatus,
   ensureRouterModelAvailable,
   getHistory,
+=======
+};
+
+module.exports = {
+  generateImages,
+>>>>>>> 6ac966a3b517f7a7a874dad7b2b8e768879c3ebe
 };

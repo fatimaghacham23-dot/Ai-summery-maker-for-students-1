@@ -1,8 +1,17 @@
 require("dotenv").config();
 
+<<<<<<< HEAD
 const parseBooleanFlag = (value) => String(value || "").toLowerCase() === "true";
 console.log("DEBUG_TOKEN =", JSON.stringify(process.env.DEBUG_TOKEN));
 console.log("ENABLE_DEBUG_ROUTES =", JSON.stringify(process.env.ENABLE_DEBUG_ROUTES));
+=======
+["HUGGINGFACE_API_KEY"].forEach((key) => {
+  if (!process.env[key]) {
+    throw new Error(`Missing ${key}`);
+  }
+});
+
+>>>>>>> 6ac966a3b517f7a7a874dad7b2b8e768879c3ebe
 console.log("NODE_ENV =", JSON.stringify(process.env.NODE_ENV));
 
 const fs = require("fs");
@@ -12,9 +21,12 @@ const cors = require("cors");
 const morgan = require("morgan");
 const swaggerUi = require("swagger-ui-express");
 const path = require("path");
+<<<<<<< HEAD
 const imageService = require("./server/services/imageService");
 const settingsService = require("./src/services/settingsService");
 const { resolveProviderName } = require("./src/providers/providerSelector");
+=======
+>>>>>>> 6ac966a3b517f7a7a874dad7b2b8e768879c3ebe
 
 const {
   errorHandler,
@@ -38,11 +50,11 @@ const { debugRouter } = require("./src/debug/debugRoutes");
 const { debugSessionMiddleware } = require("./src/debug/debugSessionMiddleware");
 const { apiDebugRecorder } = require("./src/debug/apiDebugRecorder");
 
-// OpenAPI spec source of truth.
 const openapiSpec = require("./src/docs/openapi");
 
 const app = express();
 
+<<<<<<< HEAD
 const ENV_NAME = String(process.env.NODE_ENV || "development").trim();
 const isDevEnv = ENV_NAME.toLowerCase() !== "production";
 const parsedPort = Number.parseInt(process.env.PORT, 10);
@@ -235,19 +247,15 @@ logFrequentRestartWarning();
  * CORS CONFIGURATION (FIXED)
  * =========================
  */
+=======
+>>>>>>> 6ac966a3b517f7a7a874dad7b2b8e768879c3ebe
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-
   "http://localhost:5000",
   "http://127.0.0.1:5000",
-
   "http://localhost:5500",
   "http://127.0.0.1:5500",
-
-  "http://localhost:5501",
-  "http://127.0.0.1:5501",
-
   "http://localhost:8080",
   "http://127.0.0.1:8080",
 ];
@@ -255,30 +263,16 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow server-to-server, curl, Postman, etc.
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.error("❌ Blocked by CORS:", origin);
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
 
-/**
- * =================
- * GLOBAL MIDDLEWARE
- * =================
- */
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
-
 app.use(debugSessionMiddleware);
 
 app.use(express.static(path.join(__dirname)));
@@ -287,11 +281,6 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-/**
- * =======
- * ROUTES
- * =======
- */
 app.use("/health", healthRouter);
 app.use("/api", apiDebugRecorder);
 app.use("/api", summarizeRouter);
@@ -308,25 +297,16 @@ app.use("/api/tools", toolsRouter);
 app.use(shareViewRouter);
 app.use("/__debug", debugRouter);
 
-/**
- * ============
- * SWAGGER / API
- * ============
- */
 app.get("/openapi.json", (req, res) => {
   res.json(openapiSpec);
 });
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
-/**
- * ==================
- * ERROR HANDLING
- * ==================
- */
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+<<<<<<< HEAD
 /**
  * ==============
  * START SERVER
@@ -396,5 +376,10 @@ startServer().catch((error) => {
   recordCrashInfo(error);
   console.error("Failed to start server:", error);
   process.exit(1);
-});
+=======
+const PORT = process.env.PORT || 3000;
 
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+>>>>>>> 6ac966a3b517f7a7a874dad7b2b8e768879c3ebe
+});
